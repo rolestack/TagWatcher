@@ -81,26 +81,38 @@
 <!-- Agent registration pending banner -->
 {% if host.host_type == 'agent' and host.agent_registration_token %}
 <div class="mb-4 p-5 bg-amber-50 border border-amber-200 rounded-xl" x-data="{ copied: false }">
-    <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center justify-between mb-4">
         <p class="text-sm font-semibold text-amber-900">Waiting for agent to register</p>
         <button @click="fetch('/spaces/{{ space.id }}/hosts/{{ host.id }}/generate-token', {method:'POST'})
                         .then(r=>r.json()).then(d=>{ document.getElementById('reg-token').textContent=d.token; })"
                 class="text-xs text-amber-700 hover:text-amber-900 underline">Regenerate token</button>
     </div>
-    <p class="text-xs text-amber-800 mb-3">Run the agent on the remote host with this token — it will register and start pushing data automatically.</p>
-    <pre class="bg-amber-100 rounded-lg p-3 text-xs text-amber-900 overflow-x-auto whitespace-pre-wrap">cp .env.example .env
-# Edit .env and set:
-TAGWATCHER_URL={{ request.url.scheme }}://{{ request.url.netloc }}
-REGISTRATION_TOKEN=<span id="reg-token">{{ host.agent_registration_token }}</span>
 
-docker compose up -d</pre>
-    <button @click="navigator.clipboard.writeText(document.getElementById('reg-token').textContent); copied=true; setTimeout(()=>copied=false,2000)"
-            class="mt-2 text-xs text-amber-700 hover:text-amber-900 flex items-center gap-1">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2"/>
-        </svg>
-        <span x-text="copied ? 'Copied!' : 'Copy token'"></span>
-    </button>
+    <!-- Token box -->
+    <p class="text-xs font-semibold text-amber-800 uppercase tracking-wide mb-1.5">Registration Token</p>
+    <div class="flex items-stretch gap-2 mb-4">
+        <code id="reg-token"
+              class="flex-1 block bg-white border-2 border-amber-400 rounded-lg px-3 py-2.5 text-sm font-mono text-amber-900 break-all select-all leading-relaxed">{{ host.agent_registration_token }}</code>
+        <button @click="navigator.clipboard.writeText(document.getElementById('reg-token').textContent); copied=true; setTimeout(()=>copied=false,2000)"
+                class="flex-shrink-0 inline-flex flex-col items-center justify-center gap-1 px-4 bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium rounded-lg transition-colors min-w-[60px]">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            <span x-text="copied ? 'Copied!' : 'Copy'"></span>
+        </button>
+    </div>
+
+    <!-- Setup instructions -->
+    <p class="text-xs font-semibold text-amber-800 uppercase tracking-wide mb-1.5">Setup</p>
+    <div class="bg-gray-900 rounded-lg px-4 py-3 text-xs font-mono overflow-x-auto space-y-0.5">
+        <p class="text-gray-500"># 1. Copy env file</p>
+        <p class="text-gray-100">cp .env.example .env</p>
+        <p class="text-gray-500 mt-2"># 2. Set in .env</p>
+        <p class="text-gray-100">TAGWATCHER_URL=<span class="text-green-400">{{ request.url.scheme }}://{{ request.url.netloc }}</span></p>
+        <p class="text-gray-100">REGISTRATION_TOKEN=<span class="text-yellow-300">{{ host.agent_registration_token }}</span></p>
+        <p class="text-gray-500 mt-2"># 3. Start agent</p>
+        <p class="text-gray-100">docker compose up -d</p>
+    </div>
 </div>
 {% endif %}
 
