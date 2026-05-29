@@ -326,22 +326,20 @@ async def update_container_image(
         from app.routers.agent_api import _agent_pending_updates
         host_key = str(host.id)
         pending_list = _agent_pending_updates.setdefault(host_key, [])
-        if not any(p["container_id"] == container.container_id for p in pending_list):
+        already_queued = any(p["container_id"] == container.container_id for p in pending_list)
+        if not already_queued:
             pending_list.append({
                 "container_id": container.container_id,
                 "container_name": container.name,
                 "new_image": new_image,
             })
-        # Do NOT update container.tag here — the agent hasn't applied yet.
-        # Keep has_update=False temporarily; the checker will restore it if the
-        # agent hasn't applied by the next check, but won't re-notify because
-        # latest_tag hasn't changed.
-        container.has_update = False
-        container.snoozed_until = None
+        # Do NOT touch container.tag or has_update — the agent hasn't applied yet.
+        # The agent will sync back with the actual new tag after applying,
+        # and the checker will update has_update correctly from real state.
         await db.commit()
         await _audit(None, "container.update", user=user, resource_type="container",
                      resource_id=container.id, resource_name=container.name,
-                     details={"image": new_image, "method": "agent"}, request=request)
+                     details={"image": new_image, "method": "agent", "already_queued": already_queued}, request=request)
         return {"status": "queued", "image": new_image, "container_status": "pending"}
 
     try:
