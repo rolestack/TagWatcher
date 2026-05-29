@@ -158,6 +158,11 @@
                           {{ 'text-white bg-gray-700' if request.url.path == '/admin/settings/brand' else 'text-gray-300 hover:text-white hover:bg-gray-700' }}">
                     Brand
                 </a>
+                <a href="/admin/settings/notifications"
+                   class="flex items-center px-3 py-1.5 rounded-md text-xs font-medium transition-colors
+                          {{ 'text-white bg-gray-700' if request.url.path == '/admin/settings/notifications' else 'text-gray-300 hover:text-white hover:bg-gray-700' }}">
+                    Notifications
+                </a>
                 <a href="/admin/settings/injection"
                    class="flex items-center px-3 py-1.5 rounded-md text-xs font-medium transition-colors
                           {{ 'text-white bg-gray-700' if request.url.path == '/admin/settings/injection' else 'text-gray-300 hover:text-white hover:bg-gray-700' }}">

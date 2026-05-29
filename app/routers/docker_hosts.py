@@ -1,8 +1,11 @@
 import re
 import uuid
+import secrets
 import logging
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 from fastapi import APIRouter, Depends, Request, HTTPException, status, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -163,7 +166,8 @@ async def add_host(
     user: CurrentUser,
     db: DB,
     name: str = Form(...),
-    host_url: str = Form(...),
+    host_type: str = Form("tcp"),
+    host_url: str = Form(""),
     use_tls: bool = Form(False),
     tls_ca: str = Form(""),
     tls_cert: str = Form(""),
@@ -172,13 +176,25 @@ async def add_host(
 ):
     space = await get_space_access(space_id, user, db)
 
-    url_error = validate_docker_host_url(host_url)
-    if url_error:
-        raise HTTPException(status_code=400, detail=url_error)
+    if host_type not in ("tcp", "unix", "agent"):
+        host_type = "tcp"
+
+    reg_token: str | None = None
+    reg_expires: datetime | None = None
+
+    if host_type == "agent":
+        reg_token = secrets.token_urlsafe(32)
+        reg_expires = datetime.now(timezone.utc) + timedelta(hours=24)
+        host_url = ""
+    else:
+        url_error = validate_docker_host_url(host_url)
+        if url_error:
+            raise HTTPException(status_code=400, detail=url_error)
 
     host = DockerHost(
         space_id=space_id,
         name=name,
+        host_type=host_type,
         host_url=host_url,
         use_tls=use_tls,
         tls_ca=tls_ca or None,
@@ -186,6 +202,8 @@ async def add_host(
         tls_key=tls_key or None,
         is_active=True,
         auto_check_updates=auto_check_updates == "on",
+        agent_registration_token=reg_token,
+        agent_registration_token_expires_at=reg_expires,
     )
     db.add(host)
     await db.commit()
@@ -193,11 +211,37 @@ async def add_host(
     from app.services.audit_service import audit as _audit
     await _audit(db, "host.create", user=user, resource_type="host",
                  resource_id=host.id, resource_name=host.name,
-                 details={"space": space.name, "url": host_url}, request=request)
+                 details={"space": space.name, "type": host_type, "url": host_url}, request=request)
     from app.services.scheduler import register_host_job as _reg_job
     _reg_job(host)
-    logger.info(f"Added docker host: {host.name} to space {space.name} by {user.email}")
+    logger.info(f"Added host: {host.name} (type={host_type}) to space {space.name} by {user.email}")
     return RedirectResponse(url=f"/spaces/{space_id}/hosts/{host.id}", status_code=302)
+
+
+@router.post("/{host_id}/generate-token", response_class=JSONResponse)
+async def generate_agent_token(
+    space_id: uuid.UUID,
+    host_id: uuid.UUID,
+    user: CurrentUser,
+    db: DB,
+):
+    """Generate a new one-time registration token for an agent-type host."""
+    await get_space_access(space_id, user, db)
+    result = await db.execute(
+        select(DockerHost).where(DockerHost.id == host_id, DockerHost.space_id == space_id)
+    )
+    host = result.scalar_one_or_none()
+    if not host or host.host_type != "agent":
+        raise HTTPException(status_code=404, detail="Agent host not found")
+
+    token = secrets.token_urlsafe(32)
+    host.agent_registration_token = token
+    host.agent_registration_token_expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+    host.agent_secret = None
+    host.host_url = ""
+    await db.commit()
+    logger.info(f"Generated new registration token for agent host '{host.name}' by {user.email}")
+    return {"token": token}
 
 
 @router.post("/{host_id}")

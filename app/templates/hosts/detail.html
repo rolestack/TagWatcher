@@ -76,12 +76,46 @@
 </div>
 {% endif %}
 
+<!-- Agent registration pending banner -->
+{% if host.host_type == 'agent' and host.agent_registration_token %}
+<div class="mb-4 p-5 bg-amber-50 border border-amber-200 rounded-xl" x-data="{ copied: false }">
+    <div class="flex items-center justify-between mb-3">
+        <p class="text-sm font-semibold text-amber-900">Waiting for agent to register</p>
+        <button @click="fetch('{{ request.url_for('generate_agent_token', space_id=space.id, host_id=host.id) }}', {method:'POST'})
+                        .then(r=>r.json()).then(d=>{ document.getElementById('reg-token').textContent=d.token; })"
+                class="text-xs text-amber-700 hover:text-amber-900 underline">Regenerate token</button>
+    </div>
+    <p class="text-xs text-amber-800 mb-3">Run the following on the remote host, then the agent will register automatically.</p>
+    <pre class="bg-amber-100 rounded-lg p-3 text-xs text-amber-900 overflow-x-auto whitespace-pre-wrap">cp .env.example .env
+# Edit .env and set:
+TAGWATCHER_URL={{ request.url_for('dashboard') | replace('/','',3) | truncate(0, false, '') }}{{ request.base_url | string | rstrip('/') }}
+REGISTRATION_TOKEN=<span id="reg-token">{{ host.agent_registration_token }}</span>
+AGENT_ADVERTISE_URL=http://&lt;this-host-ip&gt;:9125
+
+docker compose up -d</pre>
+    <button @click="navigator.clipboard.writeText(document.getElementById('reg-token').textContent); copied=true; setTimeout(()=>copied=false,2000)"
+            class="mt-2 text-xs text-amber-700 hover:text-amber-900 flex items-center gap-1">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+        <span x-text="copied ? 'Copied!' : 'Copy token'"></span>
+    </button>
+</div>
+{% endif %}
+
 <!-- Host info card -->
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 mb-6">
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
         <div>
+            {% if host.host_type == 'agent' %}
+            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Agent URL</p>
+            <p class="mt-1 text-sm font-mono text-gray-900 break-all">
+                {{ host.host_url if host.host_url else '—' }}
+            </p>
+            {% else %}
             <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Host URL</p>
             <p class="mt-1 text-sm font-mono text-gray-900 break-all">{{ host.host_url }}</p>
+            {% endif %}
         </div>
         <div>
             <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Status</p>
@@ -89,6 +123,10 @@
                 {% if not host.is_active %}
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
                     <span class="status-dot removed mr-1.5"></span>Disabled
+                </span>
+                {% elif host.host_type == 'agent' and host.agent_registration_token %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                    <span class="status-dot mr-1.5"></span>Pending
                 </span>
                 {% elif host.last_sync_error %}
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
@@ -106,8 +144,13 @@
             </div>
         </div>
         <div>
-            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">TLS</p>
-            <p class="mt-1 text-sm text-gray-900">{{ 'Enabled' if host.use_tls else 'Disabled' }}</p>
+            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Type</p>
+            <p class="mt-1 text-sm text-gray-900 capitalize">
+                {% if host.host_type == 'agent' %}Agent
+                {% elif host.use_tls %}TCP (TLS)
+                {% else %}{{ host.host_type | upper }}
+                {% endif %}
+            </p>
         </div>
         <div>
             <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Last Synced</p>

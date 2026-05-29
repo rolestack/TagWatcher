@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 import docker
 import docker.errors
+import httpx
 from fastapi import WebSocket
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -120,29 +121,32 @@ class DockerService:
     # ── Client construction ────────────────────────────────────────────────────
 
     def _get_client_sync(self, host: DockerHost) -> docker.DockerClient:
-        if not (host.use_tls and host.tls_cert and host.tls_key):
+        if not host.use_tls:
             return docker.DockerClient(base_url=host.host_url, timeout=30)
         return self._get_tls_client_sync(host)
 
     def _get_tls_client_sync(self, host: DockerHost) -> docker.DockerClient:
         cert_file = key_file = ca_file = None
         try:
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as f:
-                f.write(host.tls_cert)
-                cert_file = f.name
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as f:
-                f.write(host.tls_key)
-                key_file = f.name
+            if host.tls_cert and host.tls_key:
+                with tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as f:
+                    f.write(host.tls_cert)
+                    cert_file = f.name
+                with tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as f:
+                    f.write(host.tls_key)
+                    key_file = f.name
             if host.tls_ca:
                 with tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as f:
                     f.write(host.tls_ca)
                     ca_file = f.name
             tls_config = docker.tls.TLSConfig(
-                client_cert=(cert_file, key_file),
+                client_cert=(cert_file, key_file) if cert_file and key_file else None,
                 ca_cert=ca_file,
                 verify=ca_file is not None,
             )
-            return docker.DockerClient(base_url=host.host_url, tls=tls_config, timeout=30)
+            # tcp:// → https:// so the Docker SDK uses TLS transport
+            base_url = host.host_url.replace("tcp://", "https://")
+            return docker.DockerClient(base_url=base_url, tls=tls_config, timeout=30)
         finally:
             for path in [cert_file, key_file, ca_file]:
                 if path and os.path.exists(path):
@@ -387,6 +391,9 @@ class DockerService:
     # ── Container sync ─────────────────────────────────────────────────────────
 
     async def sync_containers(self, db: AsyncSession, host: DockerHost):
+        if host.host_type == "agent":
+            await self._sync_from_agent(db, host)
+            return
         try:
             containers = await self.list_containers(host)
         except Exception as e:
@@ -410,6 +417,54 @@ class DockerService:
         host.last_sync_error = None
         await db.commit()
         logger.info(f"Synced {len(containers)} containers from host {host.name}")
+
+    async def _sync_from_agent(self, db: AsyncSession, host: DockerHost) -> None:
+        """Sync containers by querying the TagWatcher Agent HTTP API."""
+        if not host.host_url or not host.agent_secret:
+            raise ValueError(f"Agent host '{host.name}' is not registered yet.")
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.get(
+                    host.host_url.rstrip("/") + "/containers",
+                    headers={"Authorization": f"Bearer {host.agent_secret}"},
+                )
+                resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise RuntimeError(
+                f"Agent returned {e.response.status_code}: {e.response.text}"
+            ) from e
+        except httpx.RequestError as e:
+            raise RuntimeError(f"Could not reach agent at {host.host_url}: {e}") from e
+
+        raw_containers = resp.json().get("containers", [])
+        containers = [
+            {
+                "container_id": c["container_id"],
+                "name": c["name"],
+                "image": f"{c['image']}:{c['tag']}",
+                "status": c["status"],
+                "digest": c.get("digest"),
+            }
+            for c in raw_containers
+        ]
+
+        result = await db.execute(
+            select(TrackedContainer).where(TrackedContainer.docker_host_id == host.id)
+        )
+        existing_by_name = self._build_existing_map(result.scalars().all())
+        seen_names = {c["name"] for c in containers}
+
+        for c_data in containers:
+            self._upsert_container(db, existing_by_name, c_data, host.id)
+
+        for cname, tc in existing_by_name.items():
+            if cname not in seen_names and tc.status != "removed":
+                tc.status = "removed"
+
+        host.last_synced_at = datetime.now(timezone.utc)
+        host.last_sync_error = None
+        await db.commit()
+        logger.info(f"Synced {len(containers)} containers from agent host '{host.name}'")
 
     @staticmethod
     def _build_existing_map(rows) -> dict[str, TrackedContainer]:

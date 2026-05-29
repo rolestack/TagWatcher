@@ -105,11 +105,12 @@ async def lifespan(app: FastAPI):
 
     # Start the update-check scheduler only when DB is ready.
     if database.is_initialized():
-        from app.services.scheduler import scheduler, register_host_job
+        from app.services.scheduler import scheduler, register_host_job, register_maintenance_jobs
         from app.models.docker_host import DockerHost
         from sqlalchemy import select as _sa_select
 
         scheduler.start()
+        register_maintenance_jobs()
 
         # Load all active hosts and register per-host scheduler jobs.
         _maker = database.get_session_maker()
@@ -253,7 +254,7 @@ from app.templates_setup import templates  # noqa: E402
 # Routers
 # ---------------------------------------------------------------------------
 
-from app.routers import auth, dashboard, spaces, docker_hosts, containers, notifications, admin, account  # noqa: E402
+from app.routers import auth, dashboard, spaces, docker_hosts, containers, notifications, admin, account, agent_api  # noqa: E402
 from app.models import audit_log as _audit_log_model  # noqa: F401 — ensure table registered
 
 app.include_router(auth.router)
@@ -264,6 +265,7 @@ app.include_router(containers.router)
 app.include_router(notifications.router)
 app.include_router(admin.router)
 app.include_router(account.router)
+app.include_router(agent_api.router)
 
 
 @app.get("/health", include_in_schema=False)

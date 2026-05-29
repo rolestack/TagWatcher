@@ -21,6 +21,9 @@ SESSION_MAX_AGE_KEY = "session_max_age"
 CUSTOM_HEAD_HTML_KEY = "custom_head_html"
 FOOTER_TEXT_KEY = "footer_text"
 CUSTOM_FOOTER_HTML_KEY = "custom_footer_html"
+NOTIFICATION_RETENTION_DAYS_KEY = "notification_retention_days"
+
+NOTIFICATION_RETENTION_DEFAULT = 90
 
 class SettingsService:
     @staticmethod
@@ -101,3 +104,15 @@ class SettingsService:
             except ValueError:
                 pass
         return env_settings.SESSION_MAX_AGE
+
+    @staticmethod
+    async def get_notification_retention_days(db: AsyncSession) -> int:
+        val = await SettingsService.get(db, NOTIFICATION_RETENTION_DAYS_KEY)
+        if val:
+            try:
+                days = int(val)
+                if days > 0:
+                    return days
+            except ValueError:
+                pass
+        return NOTIFICATION_RETENTION_DEFAULT

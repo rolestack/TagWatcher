@@ -30,6 +30,7 @@ from app.services.settings_service import (
     CUSTOM_HEAD_HTML_KEY,
     FOOTER_TEXT_KEY,
     CUSTOM_FOOTER_HTML_KEY,
+    NOTIFICATION_RETENTION_DAYS_KEY,
 )
 
 logger = logging.getLogger(__name__)
@@ -362,6 +363,32 @@ def _normalize_asset_url(url: str | None) -> str:
     if url and url.startswith("/static/uploads/"):
         return "/assets/" + url[len("/static/uploads/"):]
     return url or ""
+
+
+@router.get("/settings/notifications", response_class=HTMLResponse)
+async def settings_notifications_page(request: Request, user: AdminUser, db: DB):
+    retention_days = await SettingsService.get_notification_retention_days(db)
+    saved = request.query_params.get("saved") == "1"
+    return templates.TemplateResponse(request, "admin/settings_notifications.html", {
+        "user": user,
+        "retention_days": retention_days,
+        "saved": saved,
+    })
+
+
+@router.post("/settings/notifications")
+async def save_notification_settings(
+    request: Request,
+    admin: AdminUser,
+    db: DB,
+    retention_days: str = Form("90"),
+):
+    try:
+        days = max(1, int(retention_days))
+    except (ValueError, TypeError):
+        days = 90
+    await SettingsService.set(db, NOTIFICATION_RETENTION_DAYS_KEY, str(days))
+    return RedirectResponse(url="/admin/settings/notifications?saved=1", status_code=303)
 
 
 @router.get("/settings/brand", response_class=HTMLResponse)

@@ -1,13 +1,12 @@
 import logging
-from fastapi import APIRouter, Depends, Request
+from datetime import datetime, timedelta, timezone
+from fastapi import APIRouter, Request, Query
 from fastapi.responses import HTMLResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from sqlalchemy.orm import selectinload
 
-from app.deps import get_current_active_user, get_db, DB, CurrentUser
-from app.models.user import User
+from app.deps import DB, CurrentUser
 from app.models.space import Space
 from app.models.docker_host import DockerHost
 from app.models.container import TrackedContainer
@@ -20,13 +19,28 @@ router = APIRouter(tags=["dashboard"])
 from app.templates_setup import templates
 
 
+def _period_start(period: str) -> datetime:
+    now = datetime.now(timezone.utc)
+    if period == "week":
+        return (now - timedelta(days=now.weekday())).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+    if period == "month":
+        return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(
     request: Request,
     user: CurrentUser,
     db: DB,
+    period: str = Query(default="today"),
 ):
     """Main dashboard: summary stats, accessible spaces, recent notifications."""
+
+    if period not in ("today", "week", "month"):
+        period = "today"
 
     # Get spaces accessible by the user
     if user.is_admin:
@@ -47,14 +61,12 @@ async def dashboard(
 
     space_ids = [s.id for s in accessible_spaces]
 
-    # Count hosts
     if space_ids:
         host_result = await db.execute(
             select(func.count(DockerHost.id)).where(DockerHost.space_id.in_(space_ids))
         )
         total_hosts = host_result.scalar() or 0
 
-        # Count containers and updates
         host_ids_result = await db.execute(
             select(DockerHost.id).where(DockerHost.space_id.in_(space_ids))
         )
@@ -78,39 +90,53 @@ async def dashboard(
             )
             pending_updates = updates_result.scalar() or 0
 
-            # Recent notifications (last 20) — eager-load container→host→space chain
+            # Check if any notifications exist (regardless of period) for empty-state messaging
+            any_count = await db.scalar(
+                select(func.count(NotificationLog.id))
+                .join(TrackedContainer, TrackedContainer.id == NotificationLog.container_id)
+                .where(TrackedContainer.docker_host_id.in_(host_ids))
+            )
+            has_notifications = (any_count or 0) > 0
+
             notif_result = await db.execute(
                 select(NotificationLog)
                 .join(TrackedContainer, TrackedContainer.id == NotificationLog.container_id)
-                .where(TrackedContainer.docker_host_id.in_(host_ids))
+                .where(
+                    TrackedContainer.docker_host_id.in_(host_ids),
+                    NotificationLog.sent_at >= _period_start(period),
+                )
                 .options(
                     selectinload(NotificationLog.container)
                     .selectinload(TrackedContainer.docker_host)
                     .selectinload(DockerHost.space)
                 )
                 .order_by(NotificationLog.sent_at.desc())
-                .limit(50)
+                .limit(200)
             )
             recent_notifications = notif_result.scalars().all()
         else:
             total_containers = 0
             pending_updates = 0
+            has_notifications = False
             recent_notifications = []
     else:
         total_hosts = 0
         total_containers = 0
         pending_updates = 0
+        has_notifications = False
         recent_notifications = []
 
     return templates.TemplateResponse(
         request,
         "dashboard.html",
         {
-"user": user,
+            "user": user,
             "spaces": accessible_spaces,
             "total_hosts": total_hosts,
             "total_containers": total_containers,
             "pending_updates": pending_updates,
             "recent_notifications": recent_notifications,
+            "has_notifications": has_notifications,
+            "period": period,
         },
     )

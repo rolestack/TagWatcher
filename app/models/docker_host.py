@@ -15,8 +15,13 @@ class DockerHost(Base):
         UUID(as_uuid=True), ForeignKey("spaces.id", ondelete="CASCADE"), nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(256), nullable=False)
-    host_url: Mapped[str] = mapped_column(String(512), nullable=False)
+    host_type: Mapped[str] = mapped_column(String(32), nullable=False, default="tcp")
+    host_url: Mapped[str] = mapped_column(String(512), nullable=False, default="")
     use_tls: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Agent-type fields
+    agent_registration_token: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    agent_registration_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    agent_secret: Mapped[str | None] = mapped_column(String(128), nullable=True)
     tls_ca: Mapped[str | None] = mapped_column(Text, nullable=True)
     tls_cert: Mapped[str | None] = mapped_column(Text, nullable=True)
     tls_key: Mapped[str | None] = mapped_column(Text, nullable=True)

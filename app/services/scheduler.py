@@ -1,6 +1,7 @@
 import logging
 import os
 import uuid as _uuid
+from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -128,3 +129,35 @@ def unregister_host_job(host_id: str) -> None:
             removed += 1
     if removed:
         logger.info(f"Scheduler: removed {removed} job(s) for host {host_id}")
+
+
+async def _run_cleanup_notifications() -> None:
+    """Delete NotificationLog rows older than the configured retention period."""
+    from app.database import get_session_maker
+    from app.models.notification import NotificationLog
+    from app.services.settings_service import SettingsService
+    from sqlalchemy import delete as _delete
+
+    maker = get_session_maker()
+    async with maker() as db:
+        days = await SettingsService.get_notification_retention_days(db)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        result = await db.execute(
+            _delete(NotificationLog).where(NotificationLog.sent_at < cutoff)
+        )
+        await db.commit()
+        if result.rowcount:
+            logger.info(f"Cleanup: deleted {result.rowcount} notification log(s) older than {days} days")
+
+
+def register_maintenance_jobs() -> None:
+    """Register system maintenance jobs (runs once at startup)."""
+    scheduler.add_job(
+        _run_cleanup_notifications,
+        trigger=CronTrigger(hour=3, minute=0, timezone="UTC"),
+        id="maintenance_cleanup_notifications",
+        name="Cleanup old notification logs",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+    logger.info("Scheduler: notification cleanup job registered (daily at 03:00 UTC)")

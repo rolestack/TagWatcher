@@ -122,23 +122,17 @@
 
     <!-- Recent notifications -->
     <div class="lg:col-span-2">
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100"
-             x-data="notifTabs([{% for n in recent_notifications %}{% set dt = n.status_changed_at or n.sent_at %}'{{ dt.isoformat() if dt else '' }}'{% if not loop.last %},{% endif %}{% endfor %}])">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
             <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 class="font-semibold text-gray-900">Recent Notifications</h2>
-                {% if recent_notifications %}
                 <div class="flex space-x-1">
-                    <button @click="tab='today'"
-                            :class="tab==='today' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-500 hover:text-gray-700'"
-                            class="px-3 py-1 text-xs rounded-md transition-colors">Today</button>
-                    <button @click="tab='week'"
-                            :class="tab==='week' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-500 hover:text-gray-700'"
-                            class="px-3 py-1 text-xs rounded-md transition-colors">This Week</button>
-                    <button @click="tab='month'"
-                            :class="tab==='month' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-500 hover:text-gray-700'"
-                            class="px-3 py-1 text-xs rounded-md transition-colors">This Month</button>
+                    <a href="/?period=today"
+                       class="px-3 py-1 text-xs rounded-md transition-colors {% if period == 'today' %}bg-blue-100 text-blue-700 font-semibold{% else %}text-gray-500 hover:text-gray-700{% endif %}">Today</a>
+                    <a href="/?period=week"
+                       class="px-3 py-1 text-xs rounded-md transition-colors {% if period == 'week' %}bg-blue-100 text-blue-700 font-semibold{% else %}text-gray-500 hover:text-gray-700{% endif %}">This Week</a>
+                    <a href="/?period=month"
+                       class="px-3 py-1 text-xs rounded-md transition-colors {% if period == 'month' %}bg-blue-100 text-blue-700 font-semibold{% else %}text-gray-500 hover:text-gray-700{% endif %}">This Month</a>
                 </div>
-                {% endif %}
             </div>
             <div class="table-responsive">
                 {% if recent_notifications %}
@@ -153,12 +147,10 @@
                             <th class="text-left px-6 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Updated</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody class="divide-y divide-gray-50">
                         {% for n in recent_notifications %}
                         {% set space = n.container.docker_host.space if n.container and n.container.docker_host else None %}
-                        {% set dt = n.status_changed_at or n.sent_at %}
-                        <tr x-show="isVisible('{{ dt.isoformat() if dt else '' }}')"
-                            class="hover:bg-gray-50 border-b border-gray-50">
+                        <tr class="hover:bg-gray-50">
                             <td class="px-6 py-3 text-xs text-gray-500 whitespace-nowrap">
                                 {% if space %}
                                 <a href="/spaces/{{ space.id }}" class="hover:text-blue-600">{{ space.name }}</a>
@@ -189,11 +181,12 @@
                             </td>
                         </tr>
                         {% endfor %}
-                        <tr x-show="!hasAnyVisible">
-                            <td colspan="6" class="px-6 py-8 text-center text-sm text-gray-500">No notifications for this period.</td>
-                        </tr>
                     </tbody>
                 </table>
+                {% elif has_notifications %}
+                <div class="px-6 py-8 text-center">
+                    <p class="text-sm text-gray-500">No notifications for this period.</p>
+                </div>
                 {% else %}
                 <div class="px-6 py-12 text-center">
                     <svg class="mx-auto w-10 h-10 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -207,33 +200,4 @@
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-function notifTabs(dates) {
-    return {
-        tab: 'today',
-        dates: dates,
-        get hasAnyVisible() {
-            return this.dates.some(d => this.isVisible(d));
-        },
-        isVisible(dateStr) {
-            if (!dateStr) return false;
-            const d = new Date(dateStr);
-            const now = new Date();
-            if (this.tab === 'today') {
-                return d.toDateString() === now.toDateString();
-            }
-            if (this.tab === 'week') {
-                const start = new Date(now);
-                start.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
-                start.setHours(0, 0, 0, 0);
-                return d >= start;
-            }
-            return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-        }
-    };
-}
-</script>
 {% endblock %}
