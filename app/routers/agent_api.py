@@ -69,15 +69,26 @@ class ContainerSyncItem(BaseModel):
     digest: Optional[str] = None
 
 
+class UpdateResult(BaseModel):
+    container_id: str
+    container_name: str = ""
+    success: bool
+    error: str = ""
+
+
 class SyncRequest(BaseModel):
     containers: list[ContainerSyncItem]
     hostname: str = ""
     agent_version: str = ""
+    update_results: list[UpdateResult] = []
 
 
 # Pending container updates per host, keyed by str(host.id).
 # Populated by the container update endpoint; consumed and cleared on next agent sync.
 _agent_pending_updates: dict[str, list[dict]] = {}
+
+# Update errors reported by agent, keyed by container_id. Consumed when browser calls /check.
+_agent_update_errors: dict[str, str] = {}
 
 # Active log-stream subscribers: container_id → list of asyncio.Queue (one per WebSocket).
 _agent_log_subscribers: dict[str, list] = {}
@@ -179,6 +190,13 @@ async def sync_agent(
     if body.hostname and host.host_url != body.hostname:
         host.host_url = body.hostname
         await db.commit()
+
+    for r in body.update_results:
+        if not r.success and r.error:
+            _agent_update_errors[r.container_id] = r.error
+            logger.warning(f"Agent reported update failure for '{r.container_name}': {r.error}")
+        else:
+            _agent_update_errors.pop(r.container_id, None)
 
     pending = _agent_pending_updates.pop(str(host.id), [])
     request_logs = list(_agent_log_requests.get(str(host.id), set()))

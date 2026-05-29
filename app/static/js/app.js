@@ -478,15 +478,22 @@ function containerChecker(containerId) {
                     this.result = await resp.json();
                     // Update banner and Latest Tag card immediately without reload.
                     window.dispatchEvent(new CustomEvent('tw:check-result', { detail: this.result }));
-                    // Auto-dismiss "Up to date" after 3 seconds.
-                    if (!this.result.has_update) {
+                    // Show result as toast.
+                    if (this.result.update_error) {
+                        twShowToast('Update failed: ' + this.result.update_error, 'error', 10000);
+                    } else if (this.result.has_update) {
+                        twShowToast('Update available: ' + this.result.latest_tag, 'info', 6000);
+                    } else {
+                        twShowToast('Up to date', 'success', 3000);
                         setTimeout(() => { this.result = null; }, 3000);
                     }
                 } else {
                     this.result = { error: 'Check failed' };
+                    twShowToast('Update check failed', 'error');
                 }
             } catch (e) {
                 this.result = { error: e.message };
+                twShowToast('Update check failed: ' + e.message, 'error');
             } finally {
                 this.checking = false;
             }

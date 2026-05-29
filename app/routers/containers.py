@@ -247,11 +247,17 @@ async def check_container(
                      resource_id=container.id, resource_name=container.name,
                      details={"image": f"{container.image}:{container.tag}",
                               "has_update": container.has_update}, request=request)
+        update_error: str | None = None
+        if host.host_type == "agent":
+            from app.routers.agent_api import _agent_update_errors
+            update_error = _agent_update_errors.pop(container.container_id, None)
+
         return {
             "has_update": container.has_update,
             "latest_tag": container.latest_tag,
             "latest_digest": container.latest_digest,
             "last_checked_at": container.last_checked_at.isoformat() if container.last_checked_at else None,
+            "update_error": update_error,
         }
     except HTTPException:
         raise
