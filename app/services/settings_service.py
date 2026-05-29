@@ -23,7 +23,7 @@ FOOTER_TEXT_KEY = "footer_text"
 CUSTOM_FOOTER_HTML_KEY = "custom_footer_html"
 NOTIFICATION_RETENTION_DAYS_KEY = "notification_retention_days"
 
-NOTIFICATION_RETENTION_DEFAULT = 0  # 0 = unlimited
+NOTIFICATION_RETENTION_DEFAULT = 0
 
 class SettingsService:
     @staticmethod

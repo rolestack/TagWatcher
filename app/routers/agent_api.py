@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/agent", tags=["agent-api"])
 
+_BEARER_PREFIX = "Bearer "
+
 
 def _get_client_ip(request: Request) -> str:
     """Return the real client IP, respecting X-Forwarded-For if present."""
@@ -157,10 +159,10 @@ async def sync_agent(
     authorization: Optional[str] = Header(None),
 ):
     """Called by the agent on each sync cycle to push container data."""
-    if not authorization or not authorization.startswith("Bearer "):
+    if not authorization or not authorization.startswith(_BEARER_PREFIX):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    agent_secret = authorization.removeprefix("Bearer ").strip()
+    agent_secret = authorization.removeprefix(_BEARER_PREFIX).strip()
     result = await db.execute(
         select(DockerHost).where(DockerHost.agent_secret == agent_secret)
     )
@@ -218,9 +220,9 @@ async def receive_log_data(
     authorization: Optional[str] = Header(None),
 ):
     """Receive log chunks pushed by an agent and fan them out to waiting WebSockets."""
-    if not authorization or not authorization.startswith("Bearer "):
+    if not authorization or not authorization.startswith(_BEARER_PREFIX):
         raise HTTPException(status_code=401, detail="Unauthorized")
-    agent_secret = authorization.removeprefix("Bearer ").strip()
+    agent_secret = authorization.removeprefix(_BEARER_PREFIX).strip()
     result = await db.execute(select(DockerHost).where(DockerHost.agent_secret == agent_secret))
     host = result.scalar_one_or_none()
     if not host:

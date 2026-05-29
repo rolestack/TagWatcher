@@ -146,6 +146,63 @@ async def update_container_strategy(
     return {"strategy": container.version_strategy_override, "pattern": container.version_pattern}
 
 
+async def _stream_agent_logs(websocket: WebSocket, host, container) -> None:
+    """Handle log streaming for agent-type hosts via asyncio queue pub-sub."""
+    from app.routers.agent_api import _agent_log_requests, _agent_log_subscribers
+
+    host_id = str(host.id)
+    container_id_str = container.container_id
+    q: asyncio.Queue = asyncio.Queue()
+    _agent_log_subscribers.setdefault(container_id_str, []).append(q)
+    _agent_log_requests.setdefault(host_id, set()).add(container_id_str)
+
+    try:
+        await websocket.send_text(
+            f"INFO: Connecting to agent host '{host.name}', streaming logs for {container.name}...\n"
+            f"INFO: Logs will appear on the next agent sync cycle.\n"
+        )
+        while True:
+            try:
+                line = await asyncio.wait_for(q.get(), timeout=300.0)
+                await websocket.send_text(line + "\n")
+            except asyncio.TimeoutError:
+                await websocket.send_text("INFO: No log data received. Connection timed out.\n")
+                break
+    except WebSocketDisconnect:
+        logger.info(f"Agent WebSocket disconnected for container {container_id_str}")
+    finally:
+        subs = _agent_log_subscribers.get(container_id_str, [])
+        if q in subs:
+            subs.remove(q)
+        if not subs:
+            _agent_log_subscribers.pop(container_id_str, None)
+            _agent_log_requests.get(host_id, set()).discard(container_id_str)
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+
+async def _stream_direct_logs(websocket: WebSocket, host, container, container_id: uuid.UUID) -> None:
+    """Handle log streaming for direct (TCP/Unix) Docker hosts."""
+    await websocket.send_text(f"INFO: Connecting to {host.name}, streaming logs for {container.name}...\n")
+    try:
+        await docker_service.stream_logs(host, container.container_id, websocket)
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected for container {container_id}")
+    except Exception as e:
+        logger.error(f"Log streaming error for container {container_id}: {e}")
+        try:
+            await websocket.send_text("ERROR: Log streaming failed.")
+        except Exception:
+            pass
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+
 @router.websocket("/{container_id}/logs")
 async def container_logs_ws(
     container_id: uuid.UUID,
@@ -166,60 +223,9 @@ async def container_logs_ws(
         return
 
     if host.host_type == "agent":
-        from app.routers.agent_api import _agent_log_requests, _agent_log_subscribers
-
-        host_id = str(host.id)
-        container_id_str = container.container_id
-
-        # Register this WebSocket as a subscriber queue for log data from the agent.
-        q: asyncio.Queue = asyncio.Queue()
-        _agent_log_subscribers.setdefault(container_id_str, []).append(q)
-        _agent_log_requests.setdefault(host_id, set()).add(container_id_str)
-
-        try:
-            await websocket.send_text(
-                f"INFO: Connecting to agent host '{host.name}', streaming logs for {container.name}...\n"
-                f"INFO: Logs will appear on the next agent sync cycle.\n"
-            )
-            while True:
-                try:
-                    line = await asyncio.wait_for(q.get(), timeout=300.0)
-                    await websocket.send_text(line + "\n")
-                except asyncio.TimeoutError:
-                    await websocket.send_text("INFO: No log data received. Connection timed out.\n")
-                    break
-        except WebSocketDisconnect:
-            logger.info(f"Agent WebSocket disconnected for container {container_id}")
-        finally:
-            subs = _agent_log_subscribers.get(container_id_str, [])
-            if q in subs:
-                subs.remove(q)
-            if not subs:
-                _agent_log_subscribers.pop(container_id_str, None)
-                _agent_log_requests.get(host_id, set()).discard(container_id_str)
-            try:
-                await websocket.close()
-            except Exception:
-                pass
-        return
-
-    await websocket.send_text(f"INFO: Connecting to {host.name}, streaming logs for {container.name}...\n")
-
-    try:
-        await docker_service.stream_logs(host, container.container_id, websocket)
-    except WebSocketDisconnect:
-        logger.info(f"WebSocket disconnected for container {container_id}")
-    except Exception as e:
-        logger.error(f"Log streaming error for container {container_id}: {e}")
-        try:
-            await websocket.send_text("ERROR: Log streaming failed.")
-        except Exception:
-            pass
-    finally:
-        try:
-            await websocket.close()
-        except Exception:
-            pass
+        await _stream_agent_logs(websocket, host, container)
+    else:
+        await _stream_direct_logs(websocket, host, container, container_id)
 
 
 @router.get("/{container_id}/status")
@@ -229,7 +235,7 @@ async def container_status(
     db: DB,
 ):
     """Lightweight status poll — returns has_update from DB without hitting the registry."""
-    container, host = await _get_container_with_access(container_id, user, db)
+    container, _ = await _get_container_with_access(container_id, user, db)
     return {
         "has_update": container.has_update,
         "latest_tag": container.latest_tag,
