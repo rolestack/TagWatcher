@@ -29,6 +29,8 @@ class _HealthCheckFilter(logging.Filter):
         # /auth/setup from loopback = Docker health check, not a real auth event
         if "GET /auth/setup" in msg and ("127.0.0.1" in msg or "::1" in msg):
             return False
+        if "POST /api/agent/sync" in msg:
+            return False
         return True
 
 
