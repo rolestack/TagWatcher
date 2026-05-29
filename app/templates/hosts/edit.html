@@ -213,6 +213,84 @@
             </div>
         </div>
 
+        {% if host.host_type == 'agent' %}
+        <!-- Agent Token Management -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4"
+             x-data="{
+                rotating: false,
+                newToken: '',
+                copied: false,
+                async rotate() {
+                    if (!confirm('Rotating the token will disconnect the currently registered agent. The agent will need to be restarted with the new token. Continue?')) return;
+                    this.rotating = true;
+                    this.newToken = '';
+                    try {
+                        const r = await fetch('/spaces/{{ space.id }}/hosts/{{ host.id }}/generate-token', { method: 'POST' });
+                        const d = await r.json();
+                        this.newToken = d.token;
+                    } catch (e) {
+                        twShowToast('Failed to rotate token.', 'error');
+                    } finally {
+                        this.rotating = false;
+                    }
+                },
+                copy() {
+                    navigator.clipboard.writeText(this.newToken);
+                    this.copied = true;
+                    setTimeout(() => this.copied = false, 2000);
+                }
+             }">
+            <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                <h2 class="text-base font-semibold text-gray-900">Agent Registration Token</h2>
+                {% if host.agent_secret %}
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                    <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Registered
+                </span>
+                {% elif host.agent_registration_token %}
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Pending
+                </span>
+                {% else %}
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                    No token
+                </span>
+                {% endif %}
+            </div>
+
+            {% if host.agent_secret %}
+            <p class="text-sm text-gray-600">This agent is registered and connected. Rotating the token will disconnect it — the agent will need to be restarted with the new token.</p>
+            {% elif host.agent_registration_token %}
+            <p class="text-sm text-gray-600">A registration token is pending. The agent has not connected yet. You can rotate to generate a new token if the current one expired.</p>
+            {% else %}
+            <p class="text-sm text-gray-600">No registration token. Rotate to generate one and use it to register the agent.</p>
+            {% endif %}
+
+            <!-- New token display (after rotate) -->
+            <div x-show="newToken" x-cloak class="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-3">
+                <p class="text-xs font-semibold text-amber-800">New token generated — copy it now, it won't be shown again.</p>
+                <div class="flex items-center gap-2">
+                    <code class="flex-1 text-xs font-mono bg-white border border-amber-300 rounded-lg px-3 py-2 break-all text-amber-900 select-all"
+                          x-text="newToken"></code>
+                    <button type="button" @click="copy()"
+                            class="shrink-0 px-3 py-2 text-xs font-medium rounded-lg border transition-colors"
+                            :class="copied ? 'bg-green-100 border-green-300 text-green-700' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'">
+                        <span x-text="copied ? '✓ Copied' : 'Copy'"></span>
+                    </button>
+                </div>
+                <p class="text-xs text-amber-700 font-mono">REGISTRATION_TOKEN=<span class="font-bold" x-text="newToken"></span></p>
+            </div>
+
+            <button type="button" @click="rotate()" :disabled="rotating"
+                    class="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors">
+                <svg class="w-4 h-4" :class="rotating ? 'animate-spin' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                <span x-text="rotating ? 'Generating...' : 'Rotate Token'"></span>
+            </button>
+        </div>
+        {% endif %}
+
         {% if host.host_type not in ('unix', 'agent') %}
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
             <div class="flex items-center space-x-3 border-b border-gray-100 pb-3">
