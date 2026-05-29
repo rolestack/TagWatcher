@@ -118,15 +118,15 @@
 
 <!-- Host info card -->
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 mb-6">
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 {% if host.host_type != 'agent' %}md:grid-cols-4{% else %}md:grid-cols-3{% endif %} gap-4 md:gap-6">
+        {% if host.host_type != 'agent' %}
         <div>
-            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">
-                {% if host.host_type == 'agent' %}Hostname{% else %}Host URL{% endif %}
-            </p>
+            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Host URL</p>
             <p class="mt-1 text-sm font-mono text-gray-900 break-all">
                 {{ host.host_url if host.host_url else '—' }}
             </p>
         </div>
+        {% endif %}
         <div>
             <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Status</p>
             <div class="mt-1">
