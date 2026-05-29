@@ -1,21 +1,25 @@
 # TagWatcher
 
-A self-hosted web application that monitors container images for updates and sends notifications when a new version is available.
+A self-hosted web application that monitors Docker container images for updates and sends notifications when a new version is available.
 
-Register your hosts, and TagWatcher will periodically compare running container image tags and digests against the registry — notifying you via Slack, Discord, Telegram, and more.
+Register your Docker hosts, and TagWatcher will periodically compare running container image tags and digests against the registry — notifying you via Slack, Discord, Telegram, and more.
 
 ## Features
 
-- **Multi-host** — Connect multiple remote hosts over TCP or Unix socket
+- **Multi-host** — Monitor multiple Docker hosts via Unix socket, TCP, or Agent (push-based)
+- **Agent support** — Deploy a lightweight agent on remote hosts that cannot be accessed directly
 - **Multi-tenancy** — Isolate hosts, channels, and users with Spaces and Groups
 - **Flexible scheduling** — Check on a fixed interval or at specific times of day
 - **Version strategies** — Control update scope: Auto / Major / Minor / Patch / Custom glob
 - **Notification channels** — Slack · Discord · Telegram · Mattermost · Zulip · Microsoft Teams
-- **ACK & Snooze** — Acknowledge notifications and suppress re-alerts for a configurable period
+- **Apply Update** — Pull and recreate containers (or queue via agent) directly from the UI
 - **Live logs** — Stream container logs in real time over WebSocket
+- **ACK & Snooze** — Acknowledge notifications and suppress re-alerts for a configurable period
 - **OIDC / SSO** — OpenID Connect support (Keycloak, Authentik, Google, etc.)
 - **Audit log** — Full record of all user and admin actions
 - **Setup wizard** — Configure everything, including the database connection, from the browser on first launch
+
+---
 
 ## Quick Start
 
@@ -27,14 +31,12 @@ Register your hosts, and TagWatcher will periodically compare running container 
 cp .env.example .env
 ```
 
-At minimum, set these two values:
+Set at minimum:
 
 ```env
 APP_URL=https://tagwatcher.example.com
 SECRET_KEY=replace-with-a-long-random-string
 ```
-
-`APP_URL` accepts an IP address or a domain name, with or without HTTPS.
 
 Generate a secure secret key:
 
@@ -50,24 +52,41 @@ docker compose up -d
 
 ### 3. Complete the setup wizard
 
-Open `http://your-server-ip:8000` in your browser and follow the wizard to configure the database connection and create an admin account.
+Open `http://your-server-ip:8000` in your browser and follow the wizard to configure the database connection and create the admin account.
 
-> **Monitoring the local host via Unix socket**
-> Uncomment the socket mount in `docker-compose.yml` and set `DOCKER_GID` to match the socket GID:
+---
+
+## Host Types
+
+TagWatcher supports three ways to connect to a Docker host:
+
+| Type | Description |
+|------|-------------|
+| **Unix socket** | Local Docker socket (`unix:///var/run/docker.sock`). Mount the socket into the TagWatcher container. |
+| **TCP** | Remote Docker daemon exposed over TCP/TLS. |
+| **Agent** | Deploy [TagWatcher-Agent](https://github.com/rolestack/TagWatcher-Agent) on the remote host. The agent pushes container data to TagWatcher — no inbound port needed. |
+
+> **Unix socket:** Set `DOCKER_GID` to match the socket GID:
 > ```bash
 > stat -c '%g' /var/run/docker.sock
 > ```
-> ```yaml
-> - /var/run/docker.sock:/var/run/docker.sock:ro
-> ```
+
+### Agent Host Setup
+
+For remote hosts where you cannot expose the Docker TCP port:
+
+1. In the TagWatcher UI, go to a Space → **Hosts** → **Add Host** → select type **Agent**.
+2. Copy the generated **Registration Token**.
+3. Deploy [TagWatcher-Agent](https://github.com/rolestack/TagWatcher-Agent) on the remote host with `REGISTRATION_TOKEN` set.
+4. The agent registers automatically on first startup and begins pushing container data.
 
 ---
 
 ## Database Setup
 
-TagWatcher uses PostgreSQL. The database connection is configured through the **web setup wizard** on first launch — no manual steps required.
+TagWatcher uses PostgreSQL. The connection is configured through the **web setup wizard** on first launch — no manual steps required.
 
-If you are managing your own PostgreSQL server and need to create the user and database beforehand, run the following as a superuser:
+If you need to create the database beforehand:
 
 ```sql
 CREATE USER tagwatcher WITH PASSWORD 'changeme';
@@ -77,8 +96,6 @@ GRANT USAGE  ON SCHEMA public TO tagwatcher;
 GRANT CREATE ON SCHEMA public TO tagwatcher;
 ```
 
-> Change the password before running in any non-local environment.
-
 ---
 
 ## Environment Variables
@@ -87,6 +104,7 @@ GRANT CREATE ON SCHEMA public TO tagwatcher;
 |----------|---------|:--------:|-------------|
 | `APP_URL` | `http://localhost:8000` | ✅ | Publicly accessible URL of the service. Used to generate links in notifications. |
 | `SECRET_KEY` | *(must change)* | ✅ | Session signing key. Use a long random string. |
+| `POSTGRES_PASSWORD` | — | | Password for the bundled PostgreSQL container. |
 | `APP_NAME` | `TagWatcher` | | Service name shown in the UI. |
 | `DEBUG` | `false` | | Enable debug mode. |
 | `LOG_LEVEL` | `INFO` | | Log level: `DEBUG` / `INFO` / `WARNING` / `ERROR` |
@@ -102,7 +120,7 @@ GRANT CREATE ON SCHEMA public TO tagwatcher;
 | `SESSION_MAX_AGE` | `28800` | | Session lifetime in seconds (default: 8 hours). |
 | `WORKERS` | `2` | | Number of Gunicorn worker processes. |
 | `BIND` | `0.0.0.0:8000` | | Address and port to bind. |
-| `DOCKER_GID` | `999` | | GID of the container runtime socket on the host. Required for local monitoring via Unix socket. |
+| `DOCKER_GID` | `999` | | GID of the Docker socket on the host. Required for Unix socket monitoring. |
 
 ---
 
@@ -116,9 +134,9 @@ A ready-to-use Nginx configuration is included in [`nginx.conf`](nginx.conf). It
 - Gzip compression and static file caching
 - Security headers
 - Rate limiting on auth endpoints
-- HTTPS / SSL-TLS server block (commented out, enable for production)
+- HTTPS / SSL-TLS server block (commented out — enable for production)
 
-Set `BEHIND_PROXY=true` in `.env` when running behind any reverse proxy so that client IPs are read from the `X-Forwarded-For` header correctly.
+Set `BEHIND_PROXY=true` in `.env` when running behind any reverse proxy.
 
 ---
 
