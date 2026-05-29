@@ -3,7 +3,7 @@ import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, func
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -315,8 +315,15 @@ async def redirect_handler(request: Request, exc):
     return RedirectResponse(url=exc.headers.get("Location", "/auth/login"), status_code=302)
 
 
+def _is_api_request(request: Request) -> bool:
+    return request.url.path.startswith("/api/")
+
+
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc):
+    if _is_api_request(request):
+        detail = getattr(exc, "detail", "Not found")
+        return JSONResponse({"detail": detail}, status_code=404)
     return templates.TemplateResponse(
         request,
         "base.html", {"error": "Page not found (404)"}, status_code=404
@@ -325,6 +332,9 @@ async def not_found_handler(request: Request, exc):
 
 @app.exception_handler(403)
 async def forbidden_handler(request: Request, exc):
+    if _is_api_request(request):
+        detail = getattr(exc, "detail", "Forbidden")
+        return JSONResponse({"detail": detail}, status_code=403)
     return templates.TemplateResponse(
         request,
         "base.html", {"error": "Access denied (403)"}, status_code=403
@@ -334,6 +344,8 @@ async def forbidden_handler(request: Request, exc):
 @app.exception_handler(500)
 async def server_error_handler(request: Request, exc):
     logger.exception(f"Internal server error: {exc}")
+    if _is_api_request(request):
+        return JSONResponse({"detail": "Internal server error"}, status_code=500)
     return templates.TemplateResponse(
         request,
         "base.html", {"error": "Internal server error (500)"}, status_code=500

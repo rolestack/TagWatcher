@@ -79,7 +79,14 @@ async def register_agent(body: RegisterRequest, db: DB):
     host = result.scalar_one_or_none()
 
     if not host:
-        raise HTTPException(status_code=404, detail="Invalid or expired registration token.")
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Registration token not found or already used. "
+                "Tokens are single-use — generate a new one in TagWatcher and update REGISTRATION_TOKEN. "
+                "Tip: mount /data as a persistent volume so the agent secret survives restarts."
+            ),
+        )
 
     now = datetime.now(timezone.utc)
     if host.agent_registration_token_expires_at and host.agent_registration_token_expires_at < now:
