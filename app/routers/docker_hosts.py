@@ -265,6 +265,7 @@ async def update_host(
     tls_ca: str = Form(""),
     tls_cert: str = Form(""),
     tls_key: str = Form(""),
+    agent_allowed_cidrs: str = Form(""),
 ):
     space = await get_space_access(space_id, user, db)
 
@@ -295,6 +296,8 @@ async def update_host(
     host.tls_ca = tls_ca.strip() or None
     host.tls_cert = tls_cert.strip() or None
     host.tls_key = tls_key.strip() or None
+    if host.host_type == "agent":
+        host.agent_allowed_cidrs = agent_allowed_cidrs.strip() or None
     host.check_schedule_time, host.check_interval_minutes = _parse_schedule_fields(
         check_schedule_time, check_interval_minutes
     )

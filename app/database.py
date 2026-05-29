@@ -148,6 +148,7 @@ async def run_migrations() -> None:
             "ALTER TABLE docker_hosts ADD COLUMN IF NOT EXISTS agent_registration_token VARCHAR(128)",
             "ALTER TABLE docker_hosts ADD COLUMN IF NOT EXISTS agent_registration_token_expires_at TIMESTAMP WITH TIME ZONE",
             "ALTER TABLE docker_hosts ADD COLUMN IF NOT EXISTS agent_secret VARCHAR(128)",
+            "ALTER TABLE docker_hosts ADD COLUMN IF NOT EXISTS agent_allowed_cidrs TEXT",
         ]:
             await conn.execute(text(stmt))
     logger.info("Schema migrations applied.")

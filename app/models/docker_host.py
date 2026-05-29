@@ -22,6 +22,7 @@ class DockerHost(Base):
     agent_registration_token: Mapped[str | None] = mapped_column(String(128), nullable=True)
     agent_registration_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     agent_secret: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    agent_allowed_cidrs: Mapped[str | None] = mapped_column(Text, nullable=True)
     tls_ca: Mapped[str | None] = mapped_column(Text, nullable=True)
     tls_cert: Mapped[str | None] = mapped_column(Text, nullable=True)
     tls_key: Mapped[str | None] = mapped_column(Text, nullable=True)

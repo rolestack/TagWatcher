@@ -4,12 +4,13 @@ No session authentication — the one-time registration token or the
 per-host agent_secret acts as the credential.
 """
 import asyncio
+import ipaddress
 import logging
 import secrets
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 
@@ -19,6 +20,35 @@ from app.models.docker_host import DockerHost
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/agent", tags=["agent-api"])
+
+
+def _get_client_ip(request: Request) -> str:
+    """Return the real client IP, respecting X-Forwarded-For if present."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "0.0.0.0"
+
+
+def _is_ip_allowed(ip_str: str, allowed_cidrs: str | None) -> bool:
+    """Return True if ip_str falls within any of the allowed CIDR ranges."""
+    raw = (allowed_cidrs or "0.0.0.0/0").strip()
+    if not raw:
+        return True
+    try:
+        client_ip = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return False
+    for entry in raw.replace(",", "\n").splitlines():
+        entry = entry.strip()
+        if not entry:
+            continue
+        try:
+            if client_ip in ipaddress.ip_network(entry, strict=False):
+                return True
+        except ValueError:
+            continue
+    return False
 
 
 class RegisterRequest(BaseModel):
@@ -71,7 +101,7 @@ class LogDataRequest(BaseModel):
 
 
 @router.post("/register", response_model=RegisterResponse)
-async def register_agent(body: RegisterRequest, db: DB):
+async def register_agent(body: RegisterRequest, request: Request, db: DB):
     """Called by the TagWatcher Agent on first startup to complete registration."""
     result = await db.execute(
         select(DockerHost).where(DockerHost.agent_registration_token == body.token)
@@ -92,6 +122,11 @@ async def register_agent(body: RegisterRequest, db: DB):
     if host.agent_registration_token_expires_at and host.agent_registration_token_expires_at < now:
         raise HTTPException(status_code=410, detail="Registration token has expired.")
 
+    client_ip = _get_client_ip(request)
+    if not _is_ip_allowed(client_ip, host.agent_allowed_cidrs):
+        logger.warning(f"Agent registration blocked: IP {client_ip} not in allow list for host '{host.name}'")
+        raise HTTPException(status_code=403, detail=f"IP address {client_ip} is not in the allowed list.")
+
     agent_secret = secrets.token_urlsafe(32)
     host.agent_secret = agent_secret
     host.agent_registration_token = None
@@ -106,6 +141,7 @@ async def register_agent(body: RegisterRequest, db: DB):
 @router.post("/sync", response_model=SyncResponse)
 async def sync_agent(
     body: SyncRequest,
+    request: Request,
     db: DB,
     authorization: Optional[str] = Header(None),
 ):
@@ -120,6 +156,11 @@ async def sync_agent(
     host = result.scalar_one_or_none()
     if not host:
         raise HTTPException(status_code=403, detail="Invalid agent secret.")
+
+    client_ip = _get_client_ip(request)
+    if not _is_ip_allowed(client_ip, host.agent_allowed_cidrs):
+        logger.warning(f"Agent sync blocked: IP {client_ip} not in allow list for host '{host.name}'")
+        raise HTTPException(status_code=403, detail=f"IP address {client_ip} is not in the allowed list.")
 
     containers = [
         {
@@ -154,6 +195,7 @@ async def sync_agent(
 @router.post("/log-data")
 async def receive_log_data(
     body: LogDataRequest,
+    request: Request,
     db: DB,
     authorization: Optional[str] = Header(None),
 ):
@@ -162,8 +204,13 @@ async def receive_log_data(
         raise HTTPException(status_code=401, detail="Unauthorized")
     agent_secret = authorization.removeprefix("Bearer ").strip()
     result = await db.execute(select(DockerHost).where(DockerHost.agent_secret == agent_secret))
-    if not result.scalar_one_or_none():
+    host = result.scalar_one_or_none()
+    if not host:
         raise HTTPException(status_code=403, detail="Invalid agent secret.")
+
+    client_ip = _get_client_ip(request)
+    if not _is_ip_allowed(client_ip, host.agent_allowed_cidrs):
+        raise HTTPException(status_code=403, detail=f"IP address {client_ip} is not in the allowed list.")
 
     for chunk in body.chunks:
         subs = _agent_log_subscribers.get(chunk.container_id, [])
