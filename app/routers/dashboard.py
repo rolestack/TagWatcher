@@ -89,7 +89,7 @@ async def dashboard(
                     .selectinload(DockerHost.space)
                 )
                 .order_by(NotificationLog.sent_at.desc())
-                .limit(20)
+                .limit(50)
             )
             recent_notifications = notif_result.scalars().all()
         else:
