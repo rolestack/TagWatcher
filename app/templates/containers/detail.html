@@ -274,11 +274,14 @@
                         <template x-if="status === 'failed'">
                             <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-red-100 text-red-700" title="{{ log.error_message or '' }}">FAILED</span>
                         </template>
+                        <template x-if="status === 'resolved'">
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-700">RESOLVED</span>
+                        </template>
                         <!-- Timestamp: status_changed_at if acked, otherwise sent_at -->
                         <span class="text-xs text-gray-400 whitespace-nowrap"
                               x-text="changedAt || '{{ log.sent_at | localtime(user) }}'"></span>
-                        <!-- Ack button (hidden once acked) -->
-                        <template x-if="status !== 'ack'">
+                        <!-- Ack button (hidden once acked or resolved) -->
+                        <template x-if="status !== 'ack' && status !== 'resolved'">
                             <button @click="ack()" :disabled="acking"
                                     class="inline-flex items-center px-1.5 py-0.5 rounded text-xs border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-40 transition-colors">
                                 <svg class="w-3 h-3 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
