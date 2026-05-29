@@ -420,7 +420,7 @@ class DockerService:
         host.last_synced_at = datetime.now(timezone.utc)
         host.last_sync_error = None
         await db.commit()
-        logger.info(f"Synced {len(containers)} container(s) for host '{host.name}'")
+        logger.debug(f"Synced {len(containers)} container(s) for host '{host.name}'")
 
     @staticmethod
     def _build_existing_map(rows) -> dict[str, TrackedContainer]:

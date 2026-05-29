@@ -201,7 +201,7 @@ async def sync_agent(
     pending = _agent_pending_updates.pop(str(host.id), [])
     request_logs = list(_agent_log_requests.get(str(host.id), set()))
 
-    logger.info(
+    logger.debug(
         f"Agent sync received for host '{host.name}': "
         f"{len(containers)} container(s) from {body.hostname or 'unknown'}"
         + (f", {len(pending)} pending update(s)" if pending else "")
