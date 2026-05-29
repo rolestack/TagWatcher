@@ -275,12 +275,12 @@ async def update_host(
     if not host:
         raise HTTPException(status_code=404, detail="Host not found")
 
-    url_error = validate_docker_host_url(host_url.strip())
-    if url_error:
-        raise HTTPException(status_code=400, detail=url_error)
-
     host.name = name.strip()
-    host.host_url = host_url.strip()
+    if host.host_type != "agent":
+        url_error = validate_docker_host_url(host_url.strip())
+        if url_error:
+            raise HTTPException(status_code=400, detail=url_error)
+        host.host_url = host_url.strip()
     host.is_active = is_active == "on"
     host.auto_check_updates = auto_check_updates == "on"
     _valid = {"auto", "major", "minor", "patch", "custom"}
