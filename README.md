@@ -6,7 +6,7 @@ Register your Docker hosts, and TagWatcher will periodically compare running con
 
 ## Features
 
-- **Multi-host** — Monitor multiple Docker hosts via Unix socket, TCP, or Agent (push-based)
+- **Multi-host** — Monitor multiple Docker hosts via Unix socket or Agent (push-based)
 - **Agent support** — Deploy a lightweight agent on remote hosts that cannot be accessed directly
 - **Multi-tenancy** — Isolate hosts, channels, and users with Spaces and Groups
 - **Flexible scheduling** — Check on a fixed interval or at specific times of day
@@ -63,7 +63,6 @@ TagWatcher supports three ways to connect to a Docker host:
 | Type | Description |
 |------|-------------|
 | **Unix socket** | Local Docker socket (`unix:///var/run/docker.sock`). Mount the socket into the TagWatcher container. |
-| **TCP** | Remote Docker daemon exposed over TCP/TLS. |
 | **Agent** | Deploy [TagWatcher-Agent](https://github.com/rolestack/TagWatcher-Agent) on the remote host. The agent pushes container data to TagWatcher — no inbound port needed. |
 
 > **Unix socket:** Set `DOCKER_GID` to match the socket GID:
