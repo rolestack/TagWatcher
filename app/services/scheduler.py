@@ -157,10 +157,10 @@ def register_maintenance_jobs() -> None:
     """Register system maintenance jobs (runs once at startup)."""
     scheduler.add_job(
         _run_cleanup_notifications,
-        trigger=CronTrigger(hour=3, minute=0, timezone="UTC"),
+        trigger=CronTrigger(hour=0, minute=0, timezone=os.environ.get("TZ", "UTC")),
         id="maintenance_cleanup_notifications",
         name="Cleanup old notification logs",
         replace_existing=True,
         misfire_grace_time=3600,
     )
-    logger.info("Scheduler: notification cleanup job registered (daily at 03:00 UTC)")
+    logger.info("Scheduler: notification cleanup job registered (daily at 00:00 system time)")
