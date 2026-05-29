@@ -31,10 +31,10 @@
     </div>
     {% endif %}
 
-    <!-- Apply Update (visible when has_update; hides after successful check with no update) -->
-    {% if container.has_update %}
+    <!-- Apply Update (only when tag == latest_tag, i.e. same tag with new digest; not for version upgrades) -->
+    {% if container.has_update and container.tag == container.latest_tag %}
     <div x-data="containerUpdater('{{ container.id }}')"
-         @tw:check-result.window="if (!$event.detail.has_update) $el.style.display='none'">
+         @tw:check-result.window="if (!$event.detail.has_update || $event.detail.latest_tag !== '{{ container.tag }}') $el.style.display='none'">
         <!-- Idle -->
         <button x-show="!confirming && !updating" @click="confirming = true"
                 class="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors">
@@ -89,7 +89,8 @@
 {% block content %}
 <div x-data="{
     has_update: {{ 'true' if container.has_update else 'false' }},
-    latest_tag: '{{ container.latest_tag or '' }}'
+    latest_tag: '{{ container.latest_tag or '' }}',
+    current_tag: '{{ container.tag }}'
 }" @tw:check-result.window="has_update = $event.detail.has_update; latest_tag = $event.detail.latest_tag || latest_tag">
 
 <!-- Update banner -->
@@ -102,11 +103,15 @@
     <div class="flex-1 min-w-0">
         <h3 class="text-sm font-semibold text-amber-800">Update Available</h3>
         <p class="text-sm text-amber-700 mt-0.5">
-            A newer version <strong x-text="latest_tag"></strong> is available
-            {% if container.release_date %}
-            (released {{ container.release_date.strftime('%Y-%m-%d') if container.release_date else '' }})
-            {% endif %}.
-            Use the <strong>Apply Update</strong> button in the toolbar above.
+            <span x-show="latest_tag === current_tag">
+                The image for tag <strong x-text="latest_tag"></strong> has a new digest available.
+                Use the <strong>Apply Update</strong> button in the toolbar above to recreate the container.
+            </span>
+            <span x-show="latest_tag !== current_tag">
+                A newer version <strong x-text="latest_tag"></strong> is available
+                {% if container.release_date %}(released {{ container.release_date.strftime('%Y-%m-%d') if container.release_date else '' }}){% endif %}.
+                Update your compose file to use the new version.
+            </span>
         </p>
     </div>
 </div>
