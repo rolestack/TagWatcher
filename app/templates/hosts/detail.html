@@ -222,7 +222,7 @@
                     <td class="px-4 md:px-6 py-3 hidden md:table-cell">
                         <span class="inline-flex items-center">
                             <span class="status-dot {{ c.status }} mr-1.5"></span>
-                            <span class="text-xs text-gray-600 capitalize">{{ c.status }}</span>
+                            <span class="text-xs capitalize {% if c.status in ('stopped', 'exited', 'restarting') %}text-red-500 font-medium{% else %}text-gray-600{% endif %}">{{ c.status }}</span>
                         </span>
                     </td>
                     <td class="px-4 md:px-6 py-3 whitespace-nowrap">
