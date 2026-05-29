@@ -269,6 +269,23 @@ async def update_container_image(
     latest_tag = container.latest_tag or container.tag
     new_image = f"{container.image}:{latest_tag}"
 
+    if host.host_type == "agent":
+        from app.routers.agent_api import _agent_pending_updates
+        _agent_pending_updates.setdefault(str(host.id), []).append({
+            "container_id": container.container_id,
+            "container_name": container.name,
+            "new_image": new_image,
+        })
+        container.has_update = False
+        container.latest_tag = latest_tag
+        container.snoozed_until = None
+        await db.commit()
+        from app.services.audit_service import audit as _audit
+        await _audit(None, "container.update", user=user, resource_type="container",
+                     resource_id=container.id, resource_name=container.name,
+                     details={"image": new_image, "method": "agent"}, request=request)
+        return {"status": "queued", "image": new_image, "container_status": "pending"}
+
     try:
         result = await docker_service.pull_and_recreate(host, container.container_id, new_image)
     except Exception as e:

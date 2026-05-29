@@ -44,8 +44,14 @@ class SyncRequest(BaseModel):
     agent_version: str = ""
 
 
+# Pending container updates per host, keyed by str(host.id).
+# Populated by the container update endpoint; consumed and cleared on next agent sync.
+_agent_pending_updates: dict[str, list[dict]] = {}
+
+
 class SyncResponse(BaseModel):
     ok: bool
+    pending_updates: list[dict] = []
 
 
 @router.post("/register", response_model=RegisterResponse)
@@ -110,8 +116,11 @@ async def sync_agent(
         host.host_url = body.hostname
         await db.commit()
 
+    pending = _agent_pending_updates.pop(str(host.id), [])
+
     logger.info(
         f"Agent sync received for host '{host.name}': "
         f"{len(containers)} container(s) from {body.hostname or 'unknown'}"
+        + (f", {len(pending)} pending update(s)" if pending else "")
     )
-    return SyncResponse(ok=True)
+    return SyncResponse(ok=True, pending_updates=pending)
