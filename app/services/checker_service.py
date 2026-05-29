@@ -203,6 +203,7 @@ class CheckerService:
         old_latest_tag = container.latest_tag
         old_latest_digest = container.latest_digest
         had_snooze = container.snoozed_until is not None
+        not_acked = had_update_before and container.snoozed_until is None
 
         has_update = self._detect_has_update(container, latest_tag, latest_digest)
         container.latest_tag = latest_tag
@@ -219,7 +220,7 @@ class CheckerService:
         snooze_expired = has_update and had_update_before and had_snooze and not is_snoozed
         should_notify = (
             has_update
-            and (not had_update_before or tag_changed or digest_changed or snooze_expired or force_notify)
+            and (not had_update_before or tag_changed or digest_changed or snooze_expired or force_notify or not_acked)
             and not is_snoozed
         )
 
