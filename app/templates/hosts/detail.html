@@ -90,7 +90,7 @@
     <p class="text-xs text-amber-800 mb-3">Run the agent on the remote host with this token — it will register and start pushing data automatically.</p>
     <pre class="bg-amber-100 rounded-lg p-3 text-xs text-amber-900 overflow-x-auto whitespace-pre-wrap">cp .env.example .env
 # Edit .env and set:
-TAGWATCHER_URL={{ request.base_url | string | rstrip('/') }}
+TAGWATCHER_URL={{ request.url.scheme }}://{{ request.url.netloc }}
 REGISTRATION_TOKEN=<span id="reg-token">{{ host.agent_registration_token }}</span>
 
 docker compose up -d</pre>
