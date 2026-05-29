@@ -3,6 +3,29 @@
  * Uses Alpine.js for reactivity (loaded via CDN in base.html)
  */
 
+// ─── Global Toast ─────────────────────────────────────────────────────────────
+
+function twToast() {
+    return {
+        toasts: [],
+        _nextId: 0,
+        show({ message, type = 'error', duration = 5000 }) {
+            const id = ++this._nextId;
+            this.toasts.push({ id, message, type, visible: true });
+            setTimeout(() => this.dismiss(id), duration);
+        },
+        dismiss(id) {
+            const t = this.toasts.find(t => t.id === id);
+            if (t) t.visible = false;
+            setTimeout(() => { this.toasts = this.toasts.filter(t => t.id !== id); }, 200);
+        },
+    };
+}
+
+function twShowToast(message, type = 'error', duration = 5000) {
+    window.dispatchEvent(new CustomEvent('tw:toast', { detail: { message, type, duration } }));
+}
+
 // ─── Space Tech Icons ─────────────────────────────────────────────────────────
 
 const TW_TECH_ICONS = {
@@ -371,12 +394,10 @@ function containerUpdater(containerId) {
     return {
         confirming: false,
         updating: false,
-        error: null,
 
         async applyUpdate() {
             this.confirming = false;
             this.updating = true;
-            this.error = null;
             try {
                 const resp = await fetch(`/containers/${containerId}/update`, { method: 'POST' });
                 if (resp.ok) {
@@ -385,10 +406,10 @@ function containerUpdater(containerId) {
                     window.location.href = url.toString();
                 } else {
                     const data = await resp.json().catch(() => ({}));
-                    this.error = data.detail || 'Update failed.';
+                    twShowToast(data.detail || 'Container update failed.', 'error');
                 }
             } catch (e) {
-                this.error = e.message;
+                twShowToast(e.message || 'Container update failed.', 'error');
             } finally {
                 this.updating = false;
             }
