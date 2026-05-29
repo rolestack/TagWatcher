@@ -381,12 +381,12 @@ async def save_notification_settings(
     request: Request,
     admin: AdminUser,
     db: DB,
-    retention_days: str = Form("90"),
+    retention_days: str = Form("0"),
 ):
     try:
-        days = max(1, int(retention_days))
+        days = max(0, int(retention_days))
     except (ValueError, TypeError):
-        days = 90
+        days = 0
     await SettingsService.set(db, NOTIFICATION_RETENTION_DAYS_KEY, str(days))
     return RedirectResponse(url="/admin/settings/notifications?saved=1", status_code=303)
 

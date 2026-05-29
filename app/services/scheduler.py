@@ -141,6 +141,9 @@ async def _run_cleanup_notifications() -> None:
     maker = get_session_maker()
     async with maker() as db:
         days = await SettingsService.get_notification_retention_days(db)
+        if days <= 0:
+            logger.debug("Notification log retention is unlimited — skipping cleanup")
+            return
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         result = await db.execute(
             _delete(NotificationLog).where(NotificationLog.sent_at < cutoff)

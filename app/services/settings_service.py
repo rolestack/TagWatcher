@@ -23,7 +23,7 @@ FOOTER_TEXT_KEY = "footer_text"
 CUSTOM_FOOTER_HTML_KEY = "custom_footer_html"
 NOTIFICATION_RETENTION_DAYS_KEY = "notification_retention_days"
 
-NOTIFICATION_RETENTION_DEFAULT = 90
+NOTIFICATION_RETENTION_DEFAULT = 0  # 0 = unlimited
 
 class SettingsService:
     @staticmethod
@@ -107,11 +107,12 @@ class SettingsService:
 
     @staticmethod
     async def get_notification_retention_days(db: AsyncSession) -> int:
+        """Return retention period in days. 0 means unlimited (never delete)."""
         val = await SettingsService.get(db, NOTIFICATION_RETENTION_DAYS_KEY)
-        if val:
+        if val is not None:
             try:
                 days = int(val)
-                if days > 0:
+                if days >= 0:
                     return days
             except ValueError:
                 pass

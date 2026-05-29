@@ -7,59 +7,6 @@
 {% endblock %}
 
 {% block content %}
-<!-- Stats cards -->
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
-    <!-- Total Hosts -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 flex items-center space-x-4">
-        <div class="p-3 bg-blue-50 rounded-xl">
-            <svg class="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-            </svg>
-        </div>
-        <div>
-            <p class="text-3xl font-bold text-gray-900">{{ total_hosts }}</p>
-            <p class="text-sm text-gray-500">Hosts</p>
-        </div>
-    </div>
-
-    <!-- Total Containers -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 flex items-center space-x-4">
-        <div class="p-3 bg-indigo-50 rounded-xl">
-            <svg class="w-7 h-7 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-        </div>
-        <div>
-            <p class="text-3xl font-bold text-gray-900">{{ total_containers }}</p>
-            <p class="text-sm text-gray-500">Tracked Containers</p>
-        </div>
-    </div>
-
-    <!-- Pending Updates -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 flex items-center space-x-4">
-        <div class="p-3 {% if pending_updates > 0 %}bg-amber-50{% else %}bg-green-50{% endif %} rounded-xl">
-            {% if pending_updates > 0 %}
-            <svg class="w-7 h-7 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.994L13.732 4c-.77-1.327-2.694-1.327-3.464 0L3.34 16.006c-.77 1.327.193 2.994 1.732 2.994z" />
-            </svg>
-            {% else %}
-            <svg class="w-7 h-7 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-            </svg>
-            {% endif %}
-        </div>
-        <div>
-            <p class="text-3xl font-bold {% if pending_updates > 0 %}text-amber-600{% else %}text-gray-900{% endif %}">
-                {{ pending_updates }}
-            </p>
-            <p class="text-sm text-gray-500">Pending Updates</p>
-        </div>
-    </div>
-</div>
-
 {% if total_hosts == 0 and user.is_admin %}
 <!-- Getting started guide (shown only when no hosts exist) -->
 <div class="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
@@ -81,130 +28,177 @@
 </div>
 {% endif %}
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-    <!-- Spaces quick access -->
-    <div class="lg:col-span-1">
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
-            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                <h2 class="font-semibold text-gray-900">Your Spaces</h2>
-                <a href="/spaces" class="text-sm text-blue-600 hover:text-blue-800">View all →</a>
-            </div>
-            <div class="divide-y divide-gray-50">
-                {% if spaces %}
-                {% for space in spaces %}
-                <a href="/spaces/{{ space.id }}"
-                   class="flex items-center px-6 py-3.5 hover:bg-gray-50 transition-colors group">
-                    <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center mr-3 text-blue-600 font-bold text-sm">
-                        {{ space.name[0].upper() }}
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-gray-900 truncate group-hover:text-blue-600">
-                            {{ space.name }}
-                        </p>
-                        {% if space.description %}
-                        <p class="text-xs text-gray-500 truncate">{{ space.description }}</p>
-                        {% endif %}
-                    </div>
-                    <span class="text-xs text-gray-400">{{ space.docker_hosts|length }} host{{ 's' if space.docker_hosts|length != 1 }}</span>
-                </a>
-                {% endfor %}
-                {% else %}
-                <div class="px-6 py-8 text-center">
-                    <p class="text-sm text-gray-500">No spaces yet.</p>
-                    {% if user.is_admin %}
-                    <a href="/spaces" class="mt-2 inline-block text-sm text-blue-600 hover:underline">Create a space</a>
+<!-- Top section: Spaces + Stats -->
+<div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
+
+    <!-- Your Spaces -->
+    <div class="sm:col-span-3 lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-gray-900">Your Spaces</h2>
+            <a href="/spaces" class="text-xs text-blue-600 hover:text-blue-800">View all →</a>
+        </div>
+        <div class="divide-y divide-gray-50">
+            {% if spaces %}
+            {% for space in spaces %}
+            <a href="/spaces/{{ space.id }}"
+               class="flex items-center px-4 py-2.5 hover:bg-gray-50 transition-colors group">
+                <div class="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center mr-2.5 text-blue-600 font-bold text-xs flex-shrink-0">
+                    {{ space.name[0].upper() }}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-900 truncate group-hover:text-blue-600">{{ space.name }}</p>
+                    {% if space.description %}
+                    <p class="text-xs text-gray-500 truncate">{{ space.description }}</p>
                     {% endif %}
                 </div>
+                <span class="text-xs text-gray-400 ml-2 flex-shrink-0">{{ space.docker_hosts|length }} host{{ 's' if space.docker_hosts|length != 1 }}</span>
+            </a>
+            {% endfor %}
+            {% else %}
+            <div class="px-4 py-8 text-center">
+                <p class="text-sm text-gray-500">No spaces yet.</p>
+                {% if user.is_admin %}
+                <a href="/spaces" class="mt-2 inline-block text-sm text-blue-600 hover:underline">Create a space</a>
                 {% endif %}
             </div>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Recent notifications -->
-    <div class="lg:col-span-2">
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
-            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                <h2 class="font-semibold text-gray-900">Recent Notifications</h2>
-                <div class="flex space-x-1">
-                    <a href="/?period=today"
-                       class="px-3 py-1 text-xs rounded-md transition-colors {% if period == 'today' %}bg-blue-100 text-blue-700 font-semibold{% else %}text-gray-500 hover:text-gray-700{% endif %}">Today</a>
-                    <a href="/?period=week"
-                       class="px-3 py-1 text-xs rounded-md transition-colors {% if period == 'week' %}bg-blue-100 text-blue-700 font-semibold{% else %}text-gray-500 hover:text-gray-700{% endif %}">This Week</a>
-                    <a href="/?period=month"
-                       class="px-3 py-1 text-xs rounded-md transition-colors {% if period == 'month' %}bg-blue-100 text-blue-700 font-semibold{% else %}text-gray-500 hover:text-gray-700{% endif %}">This Month</a>
-                </div>
-            </div>
-            <div class="table-responsive">
-                {% if recent_notifications %}
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="bg-gray-50">
-                            <th class="text-left px-6 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Space</th>
-                            <th class="text-left px-6 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Host</th>
-                            <th class="text-left px-6 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Container</th>
-                            <th class="text-left px-6 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Old</th>
-                            <th class="text-left px-6 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">New</th>
-                            <th class="text-left px-6 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                            <th class="text-left px-6 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Updated</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-50">
-                        {% for n in recent_notifications %}
-                        {% set space = n.container.docker_host.space if n.container and n.container.docker_host else None %}
-                        {% set host = n.container.docker_host if n.container else None %}
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-3 text-xs text-gray-500 whitespace-nowrap">
-                                {% if space %}
-                                <a href="/spaces/{{ space.id }}" class="hover:text-blue-600">{{ space.name }}</a>
-                                {% else %}—{% endif %}
-                            </td>
-                            <td class="px-6 py-3 text-xs text-gray-500 whitespace-nowrap hidden md:table-cell">
-                                {% if host and space %}
-                                <a href="/spaces/{{ space.id }}/hosts/{{ host.id }}" class="hover:text-blue-600">{{ host.name }}</a>
-                                {% else %}—{% endif %}
-                            </td>
-                            <td class="px-6 py-3 whitespace-nowrap">
-                                <a href="/containers/{{ n.container_id }}" class="text-blue-600 hover:text-blue-800 font-medium">
-                                    {{ n.container.name if n.container else n.container_id }}
-                                </a>
-                            </td>
-                            <td class="px-6 py-3 whitespace-nowrap">
-                                <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{{ n.old_tag or '—' }}</code>
-                            </td>
-                            <td class="px-6 py-3 whitespace-nowrap">
-                                <code class="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">{{ n.new_tag or '—' }}</code>
-                            </td>
-                            <td class="px-6 py-3 whitespace-nowrap">
-                                {% if n.status == 'sent' %}
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">SENT</span>
-                                {% elif n.status == 'ack' %}
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">ACK</span>
-                                {% else %}
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">FAILED</span>
-                                {% endif %}
-                            </td>
-                            <td class="px-6 py-3 text-gray-500 text-xs whitespace-nowrap">
-                                {{ (n.status_changed_at or n.sent_at) | localtime(user) if (n.status_changed_at or n.sent_at) else '—' }}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% elif has_notifications %}
-                <div class="px-6 py-8 text-center">
-                    <p class="text-sm text-gray-500">No notifications for this period.</p>
-                </div>
-                {% else %}
-                <div class="px-6 py-12 text-center">
-                    <svg class="mx-auto w-10 h-10 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                    <p class="text-sm text-gray-500">No notifications yet. Notifications will appear here when updates are detected.</p>
-                </div>
-                {% endif %}
-            </div>
+    <!-- Total Hosts -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 flex items-center space-x-4">
+        <div class="p-3 bg-blue-50 rounded-xl flex-shrink-0">
+            <svg class="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+            </svg>
         </div>
+        <div>
+            <p class="text-3xl font-bold text-gray-900">{{ total_hosts }}</p>
+            <p class="text-sm text-gray-500">Hosts</p>
+        </div>
+    </div>
+
+    <!-- Total Containers -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 flex items-center space-x-4">
+        <div class="p-3 bg-indigo-50 rounded-xl flex-shrink-0">
+            <svg class="w-7 h-7 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+        </div>
+        <div>
+            <p class="text-3xl font-bold text-gray-900">{{ total_containers }}</p>
+            <p class="text-sm text-gray-500">Tracked Containers</p>
+        </div>
+    </div>
+
+    <!-- Pending Updates -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 flex items-center space-x-4">
+        <div class="p-3 {% if pending_updates > 0 %}bg-amber-50{% else %}bg-green-50{% endif %} rounded-xl flex-shrink-0">
+            {% if pending_updates > 0 %}
+            <svg class="w-7 h-7 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.994L13.732 4c-.77-1.327-2.694-1.327-3.464 0L3.34 16.006c-.77 1.327.193 2.994 1.732 2.994z" />
+            </svg>
+            {% else %}
+            <svg class="w-7 h-7 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            {% endif %}
+        </div>
+        <div>
+            <p class="text-3xl font-bold {% if pending_updates > 0 %}text-amber-600{% else %}text-gray-900{% endif %}">
+                {{ pending_updates }}
+            </p>
+            <p class="text-sm text-gray-500">Pending Updates</p>
+        </div>
+    </div>
+
+</div>
+
+<!-- Recent Notifications — full width -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="font-semibold text-gray-900">Recent Notifications</h2>
+        <div class="flex space-x-1">
+            <a href="/?period=today"
+               class="px-3 py-1 text-xs rounded-md transition-colors {% if period == 'today' %}bg-blue-100 text-blue-700 font-semibold{% else %}text-gray-500 hover:text-gray-700{% endif %}">Today</a>
+            <a href="/?period=week"
+               class="px-3 py-1 text-xs rounded-md transition-colors {% if period == 'week' %}bg-blue-100 text-blue-700 font-semibold{% else %}text-gray-500 hover:text-gray-700{% endif %}">Week</a>
+            <a href="/?period=month"
+               class="px-3 py-1 text-xs rounded-md transition-colors {% if period == 'month' %}bg-blue-100 text-blue-700 font-semibold{% else %}text-gray-500 hover:text-gray-700{% endif %}">Month</a>
+        </div>
+    </div>
+    <div class="table-responsive">
+        {% if recent_notifications %}
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50">
+                    <th class="text-left px-6 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Space</th>
+                    <th class="text-left px-6 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Host</th>
+                    <th class="text-left px-6 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Container</th>
+                    <th class="text-left px-6 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Old</th>
+                    <th class="text-left px-6 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">New</th>
+                    <th class="text-left px-6 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                    <th class="text-left px-6 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Updated</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                {% for n in recent_notifications %}
+                {% set space = n.container.docker_host.space if n.container and n.container.docker_host else None %}
+                {% set host = n.container.docker_host if n.container else None %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-3 text-xs text-gray-500 whitespace-nowrap">
+                        {% if space %}
+                        <a href="/spaces/{{ space.id }}" class="hover:text-blue-600">{{ space.name }}</a>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="px-6 py-3 text-xs text-gray-500 whitespace-nowrap hidden md:table-cell">
+                        {% if host and space %}
+                        <a href="/spaces/{{ space.id }}/hosts/{{ host.id }}" class="hover:text-blue-600">{{ host.name }}</a>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="px-6 py-3 whitespace-nowrap">
+                        <a href="/containers/{{ n.container_id }}" class="text-blue-600 hover:text-blue-800 font-medium">
+                            {{ n.container.name if n.container else n.container_id }}
+                        </a>
+                    </td>
+                    <td class="px-6 py-3 whitespace-nowrap">
+                        <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{{ n.old_tag or '—' }}</code>
+                    </td>
+                    <td class="px-6 py-3 whitespace-nowrap">
+                        <code class="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">{{ n.new_tag or '—' }}</code>
+                    </td>
+                    <td class="px-6 py-3 whitespace-nowrap">
+                        {% if n.status == 'sent' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">SENT</span>
+                        {% elif n.status == 'ack' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">ACK</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">FAILED</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-3 text-gray-500 text-xs whitespace-nowrap">
+                        {{ (n.status_changed_at or n.sent_at) | localtime(user) if (n.status_changed_at or n.sent_at) else '—' }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% elif has_notifications %}
+        <div class="px-6 py-8 text-center">
+            <p class="text-sm text-gray-500">No notifications for this period.</p>
+        </div>
+        {% else %}
+        <div class="px-6 py-12 text-center">
+            <svg class="mx-auto w-10 h-10 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            <p class="text-sm text-gray-500">No notifications yet. Notifications will appear here when updates are detected.</p>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
