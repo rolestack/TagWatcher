@@ -83,9 +83,7 @@ For remote hosts where you cannot expose the Docker TCP port:
 
 ## Database Setup
 
-TagWatcher uses PostgreSQL. The connection is configured through the **web setup wizard** on first launch — no manual steps required.
-
-If you need to create the database beforehand:
+TagWatcher requires a PostgreSQL database. Create the user and database before running the setup wizard — the wizard only configures the connection URL, it does not create the database for you.
 
 ```sql
 CREATE USER tagwatcher WITH PASSWORD 'changeme';
