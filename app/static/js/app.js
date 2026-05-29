@@ -404,8 +404,10 @@ function containerUpdater(containerId) {
                     const data = await resp.json();
                     if (data.status === 'queued') {
                         // Agent update — don't redirect; the agent will apply it on next sync.
-                        twShowToast('Update queued. The agent will apply it on the next sync cycle.', 'info', 8000);
+                        twShowToast('Update queued. The agent will apply it on the next sync cycle.', 'info', 6000);
                         this.updating = false;
+                        // Auto-trigger a check after a short delay to refresh UI state.
+                        setTimeout(() => window.dispatchEvent(new CustomEvent('tw:do-check')), 3000);
                     } else {
                         // Direct Docker update — redirect to logs tab.
                         const url = new URL(window.location.href);
@@ -458,6 +460,10 @@ function containerChecker(containerId) {
     return {
         checking: false,
         result: null,
+
+        init() {
+            window.addEventListener('tw:do-check', () => this.check());
+        },
 
         async check() {
             this.checking = true;
