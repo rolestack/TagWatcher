@@ -52,7 +52,7 @@ class CheckerService:
             if not self._should_check(host, now):
                 continue
             try:
-                await self.check_host(db, host)
+                await self.check_host(db, host, aggregate_notify=True)
             except Exception as e:
                 logger.error(f"Error checking host {host.name}: {e}")
 

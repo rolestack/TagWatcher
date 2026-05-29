@@ -46,7 +46,7 @@ async def _run_check_host(host_id: str) -> None:
             )
             host = result.scalar_one_or_none()
             if host and host.is_active and host.auto_check_updates:
-                await checker.check_host(db, host)
+                await checker.check_host(db, host, aggregate_notify=True)
         except Exception as e:
             logger.error(f"Scheduled check failed for host {host_id}: {e}")
         finally:
