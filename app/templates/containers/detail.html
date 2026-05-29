@@ -110,7 +110,7 @@
             <span x-show="latest_tag !== current_tag">
                 A newer version <strong x-text="latest_tag"></strong> is available
                 {% if container.release_date %}(released {{ container.release_date.strftime('%Y-%m-%d') if container.release_date else '' }}){% endif %}.
-                Update your compose file to use the new version.
+                This container uses a fixed tag and cannot be updated through TagWatcher.
             </span>
         </p>
     </div>
