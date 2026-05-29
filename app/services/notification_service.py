@@ -20,7 +20,8 @@ class NotificationService:
         await self._client.aclose()
 
     def _build_notification_content(
-        self, container: TrackedContainer, app_url: str
+        self, container: TrackedContainer, app_url: str,
+        host_name: str = "", space_name: str = "", check_time: Optional[datetime] = None,
     ) -> dict[str, Any]:
         """Build a platform-agnostic notification payload."""
         container_url = f"{app_url.rstrip('/')}/containers/{container.id}"
@@ -42,6 +43,8 @@ class NotificationService:
             except Exception:
                 release_date = str(container.release_date)
 
+        check_time_str = check_time.strftime("%Y-%m-%d %H:%M UTC") if check_time else ""
+
         return {
             "container_name": container.name,
             "image": container.image,
@@ -57,12 +60,16 @@ class NotificationService:
                 f"Latest: `{new_version}`"
                 + (f"\nReleased: {release_date}" if release_date else "")
             ),
+            "host_name": host_name,
+            "space_name": space_name,
+            "check_time": check_time_str,
         }
 
     async def send_update_notification(
-        self, channel: NotificationChannel, container: TrackedContainer, app_url: str
+        self, channel: NotificationChannel, container: TrackedContainer, app_url: str,
+        host_name: str = "", space_name: str = "", check_time: Optional[datetime] = None,
     ):
-        content = self._build_notification_content(container, app_url)
+        content = self._build_notification_content(container, app_url, host_name, space_name, check_time)
 
         try:
             if channel.channel_type == ChannelType.slack:
@@ -83,7 +90,10 @@ class NotificationService:
             logger.error(f"Failed to send notification via {channel.channel_type}: {e}")
             raise
 
-    def _build_aggregated_content(self, containers: list, app_url: str) -> dict[str, Any]:
+    def _build_aggregated_content(
+        self, containers: list, app_url: str,
+        host_name: str = "", space_name: str = "", check_time: Optional[datetime] = None,
+    ) -> dict[str, Any]:
         """Build a combined notification payload for multiple containers."""
         base_url = app_url.rstrip("/")
         count = len(containers)
@@ -108,18 +118,24 @@ class NotificationService:
             for l in lines
         )
 
+        check_time_str = check_time.strftime("%Y-%m-%d %H:%M UTC") if check_time else ""
+
         return {
             "title": title,
             "count": count,
             "lines": lines,
             "summary": summary_text,
+            "host_name": host_name,
+            "space_name": space_name,
+            "check_time": check_time_str,
         }
 
     async def send_aggregated_update_notification(
-        self, channel: NotificationChannel, containers: list, app_url: str
+        self, channel: NotificationChannel, containers: list, app_url: str,
+        host_name: str = "", space_name: str = "", check_time: Optional[datetime] = None,
     ):
         """Send one combined notification for multiple updated containers."""
-        content = self._build_aggregated_content(containers, app_url)
+        content = self._build_aggregated_content(containers, app_url, host_name, space_name, check_time)
         try:
             if channel.channel_type == ChannelType.slack:
                 await self._send_aggregated_slack(channel.config, content)
@@ -137,6 +153,17 @@ class NotificationService:
             logger.error(f"Aggregated notification failed via {channel.channel_type}: {e}")
             raise
 
+    def _context_lines(self, content: dict) -> str:
+        """Return Space/Host/시간 context as newline-joined plain text."""
+        parts = []
+        if content.get("space_name"):
+            parts.append(f"Space: {content['space_name']}")
+        if content.get("host_name"):
+            parts.append(f"Host: {content['host_name']}")
+        if content.get("check_time"):
+            parts.append(f"시간: {content['check_time']}")
+        return "\n".join(parts)
+
     async def _send_aggregated_slack(self, config: dict, content: dict):
         webhook_url = config.get("webhook_url")
         if not webhook_url:
@@ -148,6 +175,9 @@ class NotificationService:
         blocks: list = [
             {"type": "header", "text": {"type": "plain_text", "text": content["title"], "emoji": True}},
         ]
+        ctx = self._context_lines(content)
+        if ctx:
+            blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": ctx}]})
         for l in content["lines"]:
             blocks.append({
                 "type": "section",
@@ -165,10 +195,12 @@ class NotificationService:
         if err:
             raise ValueError(f"Discord webhook URL invalid: {err}")
 
-        description = "\n".join(
+        ctx = self._context_lines(content)
+        items_text = "\n".join(
             f"**[{l['name']}]({l['url']})** `{l['current']}` → `{l['latest']}`{l['release']}"
             for l in content["lines"]
         )
+        description = f"{ctx}\n\n{items_text}" if ctx else items_text
         embed = {"title": content["title"], "color": 0xF59E0B, "description": description}
         resp = await self._client.post(webhook_url, json={"embeds": [embed]})
         resp.raise_for_status()
@@ -179,11 +211,13 @@ class NotificationService:
         if not bot_token or not chat_id:
             raise ValueError("Telegram config missing 'bot_token' or 'chat_id'")
 
+        ctx = self._context_lines(content)
         lines_text = "\n".join(
             f"• <a href='{l['url']}'>{l['name']}</a>: <code>{l['current']}</code> → <code>{l['latest']}</code>{l['release']}"
             for l in content["lines"]
         )
-        text = f"<b>{content['title']}</b>\n\n{lines_text}"
+        body = f"{ctx}\n\n{lines_text}" if ctx else lines_text
+        text = f"<b>{content['title']}</b>\n\n{body}"
         payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML",
                    "disable_web_page_preview": True}
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -202,10 +236,13 @@ class NotificationService:
         if err:
             raise ValueError(f"Zulip site URL invalid: {err}")
 
-        message = f"**{content['title']}**\n\n" + "\n".join(
+        ctx = self._context_lines(content)
+        items = "\n".join(
             f"- [{l['name']}]({l['url']}): `{l['current']}` → `{l['latest']}`{l['release']}"
             for l in content["lines"]
         )
+        body = f"{ctx}\n\n{items}" if ctx else items
+        message = f"**{content['title']}**\n\n{body}"
         resp = await self._client.post(
             f"{site.rstrip('/')}/api/v1/messages",
             data={"type": "stream", "to": stream, "topic": topic, "content": message},
@@ -221,10 +258,13 @@ class NotificationService:
         if err:
             raise ValueError(f"Mattermost webhook URL invalid: {err}")
 
-        text = f"#### {content['title']}\n" + "\n".join(
+        ctx = self._context_lines(content)
+        items = "\n".join(
             f"- **[{l['name']}]({l['url']})** `{l['current']}` → `{l['latest']}`{l['release']}"
             for l in content["lines"]
         )
+        body = f"{ctx}\n\n{items}" if ctx else items
+        text = f"#### {content['title']}\n{body}"
         payload: dict[str, Any] = {"text": text, "username": config.get("username", "TagWatcher")}
         if config.get("channel"):
             payload["channel"] = config["channel"]
@@ -239,7 +279,15 @@ class NotificationService:
         if err:
             raise ValueError(f"Teams webhook URL invalid: {err}")
 
-        facts = [
+        ctx_facts = []
+        if content.get("space_name"):
+            ctx_facts.append({"name": "Space", "value": content["space_name"]})
+        if content.get("host_name"):
+            ctx_facts.append({"name": "Host", "value": content["host_name"]})
+        if content.get("check_time"):
+            ctx_facts.append({"name": "시간", "value": content["check_time"]})
+
+        facts = ctx_facts + [
             {"name": l["name"], "value": f"`{l['current']}` → `{l['latest']}`{l['release']}"}
             for l in content["lines"]
         ]
@@ -268,6 +316,9 @@ class NotificationService:
             "container_url": f"{app_url.rstrip('/')}/containers/test",
             "title": "TagWatcher Test Notification",
             "summary": "This is a test notification from TagWatcher.",
+            "host_name": "",
+            "space_name": "",
+            "check_time": "",
         }
 
         if channel.channel_type == ChannelType.slack:
@@ -297,16 +348,19 @@ class NotificationService:
                 "type": "header",
                 "text": {"type": "plain_text", "text": content["title"], "emoji": True},
             },
-            {
-                "type": "section",
-                "fields": [
-                    {"type": "mrkdwn", "text": f"*Container:*\n{content['container_name']}"},
-                    {"type": "mrkdwn", "text": f"*Image:*\n{content['image']}"},
-                    {"type": "mrkdwn", "text": f"*Current Version:*\n`{content['current_version']}`"},
-                    {"type": "mrkdwn", "text": f"*New Version:*\n`{content['new_version']}`"},
-                ],
-            },
         ]
+        ctx = self._context_lines(content)
+        if ctx:
+            blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": ctx}]})
+        blocks.append({
+            "type": "section",
+            "fields": [
+                {"type": "mrkdwn", "text": f"*Container:*\n{content['container_name']}"},
+                {"type": "mrkdwn", "text": f"*Image:*\n{content['image']}"},
+                {"type": "mrkdwn", "text": f"*Current Version:*\n`{content['current_version']}`"},
+                {"type": "mrkdwn", "text": f"*New Version:*\n`{content['new_version']}`"},
+            ],
+        })
 
         if content.get("release_date"):
             blocks.append({
@@ -340,10 +394,18 @@ class NotificationService:
         if err:
             raise ValueError(f"Discord webhook URL invalid: {err}")
 
+        ctx_fields = []
+        if content.get("space_name"):
+            ctx_fields.append({"name": "Space", "value": content["space_name"], "inline": True})
+        if content.get("host_name"):
+            ctx_fields.append({"name": "Host", "value": content["host_name"], "inline": True})
+        if content.get("check_time"):
+            ctx_fields.append({"name": "시간", "value": content["check_time"], "inline": True})
+
         embed = {
             "title": content["title"],
             "color": 0xF59E0B,  # amber
-            "fields": [
+            "fields": ctx_fields + [
                 {"name": "Container", "value": content["container_name"], "inline": True},
                 {"name": "Image", "value": content["image"], "inline": True},
                 {"name": "Current Version", "value": f"`{content['current_version']}`", "inline": False},
@@ -387,8 +449,11 @@ class NotificationService:
         if not bot_token or not chat_id:
             raise ValueError("Telegram config missing 'bot_token' or 'chat_id'")
 
-        text = (
-            f"*{content['title']}*\n\n"
+        ctx = self._context_lines(content)
+        text = f"*{content['title']}*\n\n"
+        if ctx:
+            text += ctx + "\n\n"
+        text += (
             f"Container: `{content['container_name']}`\n"
             f"Image: `{content['image']}`\n"
             f"Current: `{content['current_version']}`\n"
@@ -427,8 +492,11 @@ class NotificationService:
         if err:
             raise ValueError(f"Zulip site URL invalid: {err}")
 
-        message = (
-            f"**{content['title']}**\n\n"
+        ctx = self._context_lines(content)
+        message = f"**{content['title']}**\n\n"
+        if ctx:
+            message += ctx + "\n\n"
+        message += (
             f"- Container: `{content['container_name']}`\n"
             f"- Image: `{content['image']}`\n"
             f"- Current: `{content['current_version']}`\n"
@@ -465,8 +533,11 @@ class NotificationService:
         channel = config.get("channel", "")
         username = config.get("username", "TagWatcher")
 
-        text = (
-            f"#### {content['title']}\n"
+        ctx = self._context_lines(content)
+        text = f"#### {content['title']}\n"
+        if ctx:
+            text += ctx + "\n\n"
+        text += (
             f"| Field | Value |\n"
             f"|-------|-------|\n"
             f"| Container | `{content['container_name']}` |\n"
@@ -498,7 +569,15 @@ class NotificationService:
         if err:
             raise ValueError(f"Teams webhook URL invalid: {err}")
 
-        facts = [
+        ctx_facts = []
+        if content.get("space_name"):
+            ctx_facts.append({"name": "Space", "value": content["space_name"]})
+        if content.get("host_name"):
+            ctx_facts.append({"name": "Host", "value": content["host_name"]})
+        if content.get("check_time"):
+            ctx_facts.append({"name": "시간", "value": content["check_time"]})
+
+        facts = ctx_facts + [
             {"name": "Container", "value": content["container_name"]},
             {"name": "Image", "value": content["image"]},
             {"name": "Current Version", "value": content["current_version"]},

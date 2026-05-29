@@ -122,6 +122,7 @@ class CheckerService:
     async def check_host(self, db: AsyncSession, host: DockerHost,
                          force_notify: bool = False, aggregate_notify: bool = False):
         """Sync containers then check each for updates."""
+        check_start_time = datetime.now(timezone.utc)
         logger.info(f"Checking host: {host.name} ({host.host_url})")
         try:
             await docker_service.sync_containers(db, host)
@@ -160,7 +161,7 @@ class CheckerService:
 
         if aggregate_notify and containers_to_notify:
             try:
-                await self.send_aggregated_notifications_for_host(db, host, containers_to_notify)
+                await self.send_aggregated_notifications_for_host(db, host, containers_to_notify, check_start_time)
             except Exception as e:
                 logger.error(f"Failed to send aggregated notifications for host {host.name}: {e}")
 
@@ -286,6 +287,11 @@ class CheckerService:
         if not host:
             return
 
+        space_result = await db.execute(select(Space).where(Space.id == host.space_id))
+        space = space_result.scalar_one_or_none()
+        space_name = space.name if space else ""
+        check_time = datetime.now(timezone.utc)
+
         channels_result = await db.execute(
             select(NotificationChannel).where(
                 NotificationChannel.space_id == host.space_id,
@@ -307,7 +313,8 @@ class CheckerService:
             )
             try:
                 await notification_service.send_update_notification(
-                    channel, container, settings.APP_URL
+                    channel, container, settings.APP_URL,
+                    host_name=host.name, space_name=space_name, check_time=check_time,
                 )
                 logger.info(
                     f"Sent notification for {container.name} via {channel.channel_type} ({channel.name})"
@@ -324,9 +331,14 @@ class CheckerService:
         await db.commit()
 
     async def send_aggregated_notifications_for_host(
-        self, db: AsyncSession, host: DockerHost, containers: list[TrackedContainer]
+        self, db: AsyncSession, host: DockerHost, containers: list[TrackedContainer],
+        check_time: Optional[datetime] = None,
     ):
         """Send a single combined notification for all updated containers on a host."""
+        space_result = await db.execute(select(Space).where(Space.id == host.space_id))
+        space = space_result.scalar_one_or_none()
+        space_name = space.name if space else ""
+
         channels_result = await db.execute(
             select(NotificationChannel).where(
                 NotificationChannel.space_id == host.space_id,
@@ -340,7 +352,8 @@ class CheckerService:
         for channel in channels:
             try:
                 await notification_service.send_aggregated_update_notification(
-                    channel, containers, settings.APP_URL
+                    channel, containers, settings.APP_URL,
+                    host_name=host.name, space_name=space_name, check_time=check_time,
                 )
                 log_status = "sent"
                 log_error = None
