@@ -3,6 +3,7 @@
 No session authentication — the one-time registration token or the
 per-host agent_secret acts as the credential.
 """
+import asyncio
 import logging
 import secrets
 from datetime import datetime, timezone
@@ -48,10 +49,25 @@ class SyncRequest(BaseModel):
 # Populated by the container update endpoint; consumed and cleared on next agent sync.
 _agent_pending_updates: dict[str, list[dict]] = {}
 
+# Active log-stream subscribers: container_id → list of asyncio.Queue (one per WebSocket).
+_agent_log_subscribers: dict[str, list] = {}
+# Which containers each host should send logs for (set when a WebSocket is open).
+_agent_log_requests: dict[str, set] = {}  # host_id → {container_id, ...}
+
 
 class SyncResponse(BaseModel):
     ok: bool
     pending_updates: list[dict] = []
+    request_logs: list[str] = []
+
+
+class LogChunk(BaseModel):
+    container_id: str
+    lines: list[str]
+
+
+class LogDataRequest(BaseModel):
+    chunks: list[LogChunk]
 
 
 @router.post("/register", response_model=RegisterResponse)
@@ -117,10 +133,34 @@ async def sync_agent(
         await db.commit()
 
     pending = _agent_pending_updates.pop(str(host.id), [])
+    request_logs = list(_agent_log_requests.get(str(host.id), set()))
 
     logger.info(
         f"Agent sync received for host '{host.name}': "
         f"{len(containers)} container(s) from {body.hostname or 'unknown'}"
         + (f", {len(pending)} pending update(s)" if pending else "")
+        + (f", {len(request_logs)} log stream(s)" if request_logs else "")
     )
-    return SyncResponse(ok=True, pending_updates=pending)
+    return SyncResponse(ok=True, pending_updates=pending, request_logs=request_logs)
+
+
+@router.post("/log-data")
+async def receive_log_data(
+    body: LogDataRequest,
+    db: DB,
+    authorization: Optional[str] = Header(None),
+):
+    """Receive log chunks pushed by an agent and fan them out to waiting WebSockets."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    agent_secret = authorization.removeprefix("Bearer ").strip()
+    result = await db.execute(select(DockerHost).where(DockerHost.agent_secret == agent_secret))
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="Invalid agent secret.")
+
+    for chunk in body.chunks:
+        subs = _agent_log_subscribers.get(chunk.container_id, [])
+        for q in subs:
+            for line in chunk.lines:
+                await q.put(line)
+    return {"ok": True}

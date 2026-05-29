@@ -401,16 +401,24 @@ function containerUpdater(containerId) {
             try {
                 const resp = await fetch(`/containers/${containerId}/update`, { method: 'POST' });
                 if (resp.ok) {
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('logs', '1');
-                    window.location.href = url.toString();
+                    const data = await resp.json();
+                    if (data.status === 'queued') {
+                        // Agent update — don't redirect; the agent will apply it on next sync.
+                        twShowToast('Update queued. The agent will apply it on the next sync cycle.', 'info', 8000);
+                        this.updating = false;
+                    } else {
+                        // Direct Docker update — redirect to logs tab.
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('logs', '1');
+                        window.location.href = url.toString();
+                    }
                 } else {
                     const data = await resp.json().catch(() => ({}));
                     twShowToast(data.detail || 'Container update failed.', 'error');
+                    this.updating = false;
                 }
             } catch (e) {
                 twShowToast(e.message || 'Container update failed.', 'error');
-            } finally {
                 this.updating = false;
             }
         },
@@ -464,6 +472,10 @@ function containerChecker(containerId) {
                     this.result = await resp.json();
                     // Update banner and Latest Tag card immediately without reload.
                     window.dispatchEvent(new CustomEvent('tw:check-result', { detail: this.result }));
+                    // Auto-dismiss "Up to date" after 3 seconds.
+                    if (!this.result.has_update) {
+                        setTimeout(() => { this.result = null; }, 3000);
+                    }
                 } else {
                     this.result = { error: 'Check failed' };
                 }

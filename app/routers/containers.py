@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Request, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update as _sqlupdate
 
 from app.deps import get_current_active_user, get_db, CurrentUser, DB, decode_session, get_space_access
 from app.models.container import TrackedContainer
@@ -165,6 +165,44 @@ async def container_logs_ws(
         await websocket.close(code=4004)
         return
 
+    if host.host_type == "agent":
+        from app.routers.agent_api import _agent_log_requests, _agent_log_subscribers
+
+        host_id = str(host.id)
+        container_id_str = container.container_id
+
+        # Register this WebSocket as a subscriber queue for log data from the agent.
+        q: asyncio.Queue = asyncio.Queue()
+        _agent_log_subscribers.setdefault(container_id_str, []).append(q)
+        _agent_log_requests.setdefault(host_id, set()).add(container_id_str)
+
+        try:
+            await websocket.send_text(
+                f"INFO: Connecting to agent host '{host.name}', streaming logs for {container.name}...\n"
+                f"INFO: Logs will appear on the next agent sync cycle.\n"
+            )
+            while True:
+                try:
+                    line = await asyncio.wait_for(q.get(), timeout=300.0)
+                    await websocket.send_text(line + "\n")
+                except asyncio.TimeoutError:
+                    await websocket.send_text("INFO: No log data received. Connection timed out.\n")
+                    break
+        except WebSocketDisconnect:
+            logger.info(f"Agent WebSocket disconnected for container {container_id}")
+        finally:
+            subs = _agent_log_subscribers.get(container_id_str, [])
+            if q in subs:
+                subs.remove(q)
+            if not subs:
+                _agent_log_subscribers.pop(container_id_str, None)
+                _agent_log_requests.get(host_id, set()).discard(container_id_str)
+            try:
+                await websocket.close()
+            except Exception:
+                pass
+        return
+
     await websocket.send_text(f"INFO: Connecting to {host.name}, streaming logs for {container.name}...\n")
 
     try:
@@ -269,18 +307,38 @@ async def update_container_image(
     latest_tag = container.latest_tag or container.tag
     new_image = f"{container.image}:{latest_tag}"
 
+    from app.models.notification import NotificationLog
+    from app.services.audit_service import audit as _audit
+
+    now = datetime.now(timezone.utc)
+
+    # Resolve all pending notification logs for this container so no further alerts fire.
+    await db.execute(
+        _sqlupdate(NotificationLog)
+        .where(
+            NotificationLog.container_id == container.id,
+            NotificationLog.status.in_(["sent", "ack"]),
+        )
+        .values(status="resolved", status_changed_at=now)
+    )
+
     if host.host_type == "agent":
         from app.routers.agent_api import _agent_pending_updates
-        _agent_pending_updates.setdefault(str(host.id), []).append({
-            "container_id": container.container_id,
-            "container_name": container.name,
-            "new_image": new_image,
-        })
+        host_key = str(host.id)
+        pending_list = _agent_pending_updates.setdefault(host_key, [])
+        if not any(p["container_id"] == container.container_id for p in pending_list):
+            pending_list.append({
+                "container_id": container.container_id,
+                "container_name": container.name,
+                "new_image": new_image,
+            })
+        # Do NOT update container.tag here — the agent hasn't applied yet.
+        # Keep has_update=False temporarily; the checker will restore it if the
+        # agent hasn't applied by the next check, but won't re-notify because
+        # latest_tag hasn't changed.
         container.has_update = False
-        container.latest_tag = latest_tag
         container.snoozed_until = None
         await db.commit()
-        from app.services.audit_service import audit as _audit
         await _audit(None, "container.update", user=user, resource_type="container",
                      resource_id=container.id, resource_name=container.name,
                      details={"image": new_image, "method": "agent"}, request=request)
@@ -291,8 +349,6 @@ async def update_container_image(
     except Exception as e:
         logger.error(f"Image update failed for container {container.name}: {e}")
         raise HTTPException(status_code=500, detail="Container update failed. Check server logs.")
-
-    from app.services.audit_service import audit as _audit
 
     try:
         live = await docker_service.list_containers(host)

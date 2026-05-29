@@ -16,7 +16,8 @@
 
 {% block header_actions %}
 <div class="flex items-center gap-2">
-    <!-- Reload -->
+    <!-- Reload (not available for agent hosts — agent pushes state on its own sync cycle) -->
+    {% if host.host_type != 'agent' %}
     <div x-data="containerReloader('{{ container.id }}')">
         <button @click="reload()" :disabled="reloading"
                 class="inline-flex items-center px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg disabled:opacity-50 transition-colors">
@@ -28,6 +29,7 @@
             <span class="hidden sm:inline" x-text="reloading ? 'Reloading...' : 'Reload'">Reload</span>
         </button>
     </div>
+    {% endif %}
 
     <!-- Apply Update (visible when has_update; hides after successful check with no update) -->
     {% if container.has_update %}
