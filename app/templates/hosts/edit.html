@@ -213,6 +213,7 @@
             </div>
         </div>
 
+        {% if host.host_type not in ('unix', 'agent') %}
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
             <div class="flex items-center space-x-3 border-b border-gray-100 pb-3">
                 <input type="checkbox" name="use_tls" id="use_tls"
@@ -242,6 +243,7 @@
 
             <p x-show="!useTls" x-cloak class="text-sm text-gray-400 italic">TLS is disabled for this host.</p>
         </div>
+        {% endif %}
 
         <div class="flex items-center justify-between">
             <a href="/spaces/{{ space.id }}/hosts/{{ host.id }}"
