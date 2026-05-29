@@ -51,15 +51,16 @@
                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
 
+            {% if host.host_type != 'agent' %}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Docker Host URL *</label>
                 <input type="text" name="host_url" required value="{{ host.host_url }}"
                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 <p class="text-xs text-gray-500 mt-1">
-                    Use <code class="bg-gray-100 px-1 rounded">unix:///var/run/docker.sock</code> for local
-                    or <code class="bg-gray-100 px-1 rounded">tcp://host:2376</code> for remote.
+                    Use <code class="bg-gray-100 px-1 rounded">unix:///var/run/docker.sock</code> to connect via Unix socket.
                 </p>
             </div>
+            {% endif %}
 
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-3">

@@ -252,7 +252,7 @@ async def update_host(
     user: CurrentUser,
     db: DB,
     name: str = Form(...),
-    host_url: str = Form(...),
+    host_url: str = Form(""),
     is_active: str = Form("off"),
     auto_check_updates: str = Form("off"),
     check_interval_minutes: str = Form(""),
