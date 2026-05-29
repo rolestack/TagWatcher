@@ -108,8 +108,8 @@
                     <div x-show="scheduleMode === 'time'" class="space-y-3">
                         <input type="hidden" name="check_schedule_time" :value="schedTimes.join(',')" />
 
-                        <!-- Stepper + Add -->
-                        <div class="flex items-center gap-2 select-none">
+                        <!-- Stepper + Add + Chips -->
+                        <div class="flex items-center gap-2 flex-wrap select-none">
                             <!-- Hour -->
                             <div class="flex flex-col items-center border border-gray-300 rounded-lg overflow-hidden">
                                 <button type="button" @click="schedHour = String((parseInt(schedHour||0)+1)%24).padStart(2,'0')"
@@ -130,34 +130,28 @@
                             </div>
                             <span class="text-base font-bold text-gray-400">:</span>
                             <!-- Minute -->
-                            <div class="flex flex-col items-center">
-                                <div class="flex flex-col items-center border border-gray-300 rounded-lg overflow-hidden">
-                                    <button type="button" @click="schedMin = String((parseInt(schedMin||0)+5)%60).padStart(2,'0')"
-                                            class="w-10 h-6 flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors">
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>
-                                    </button>
-                                    <input type="text" x-model="schedMin" maxlength="2"
-                                           @focus="$event.target.select()"
-                                           @blur="schedMin = String(Math.min(55,Math.round(Math.max(0,parseInt(schedMin)||0)/5)*5)).padStart(2,'0')"
-                                           @keydown.up.prevent="schedMin = String((parseInt(schedMin||0)+5)%60).padStart(2,'0')"
-                                           @keydown.down.prevent="schedMin = String(((parseInt(schedMin||0)-5)+60)%60).padStart(2,'0')"
-                                           @keydown.enter="$event.target.blur()"
-                                           class="w-10 h-8 text-center text-sm font-bold tabular-nums text-gray-900 bg-white border-t border-b border-gray-200 focus:outline-none focus:bg-blue-50 focus:text-blue-700" />
-                                    <button type="button" @click="schedMin = String(((parseInt(schedMin||0)-5)+60)%60).padStart(2,'0')"
-                                            class="w-10 h-6 flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors">
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
-                                    </button>
-                                </div>
-                                <span class="text-xs text-gray-400 mt-1">{{ system_tz }}</span>
+                            <div class="flex flex-col items-center border border-gray-300 rounded-lg overflow-hidden">
+                                <button type="button" @click="schedMin = String((parseInt(schedMin||0)+5)%60).padStart(2,'0')"
+                                        class="w-10 h-6 flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>
+                                </button>
+                                <input type="text" x-model="schedMin" maxlength="2"
+                                       @focus="$event.target.select()"
+                                       @blur="schedMin = String(Math.min(55,Math.round(Math.max(0,parseInt(schedMin)||0)/5)*5)).padStart(2,'0')"
+                                       @keydown.up.prevent="schedMin = String((parseInt(schedMin||0)+5)%60).padStart(2,'0')"
+                                       @keydown.down.prevent="schedMin = String(((parseInt(schedMin||0)-5)+60)%60).padStart(2,'0')"
+                                       @keydown.enter="$event.target.blur()"
+                                       class="w-10 h-8 text-center text-sm font-bold tabular-nums text-gray-900 bg-white border-t border-b border-gray-200 focus:outline-none focus:bg-blue-50 focus:text-blue-700" />
+                                <button type="button" @click="schedMin = String(((parseInt(schedMin||0)-5)+60)%60).padStart(2,'0')"
+                                        class="w-10 h-6 flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                                </button>
                             </div>
                             <button type="button" @click="addSchedTime()"
                                     class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors">
                                 + Add
                             </button>
-                        </div>
-
-                        <!-- Added times — separate row -->
-                        <div x-show="schedTimes.length > 0" class="flex flex-wrap gap-1.5 pl-1">
+                            <!-- Chips inline -->
                             <template x-for="t in schedTimes" :key="t">
                                 <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold rounded-full tabular-nums">
                                     <span x-text="t"></span>
@@ -166,6 +160,7 @@
                                 </span>
                             </template>
                         </div>
+                        <p class="text-xs text-gray-400">{{ system_tz }}</p>
                     </div>
                 </div>
             </div>
