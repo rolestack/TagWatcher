@@ -440,7 +440,12 @@ class DockerService:
             tc.image = image_name
             tc.tag = tag
             tc.status = c_data["status"]
-            tc.digest = c_data.get("digest")
+            new_digest = c_data.get("digest")
+            tc.digest = new_digest
+            # Auto-clear update flag when agent reports the container is now running
+            # the latest known digest (update was applied successfully).
+            if new_digest and tc.latest_digest and new_digest == tc.latest_digest:
+                tc.has_update = False
         else:
             tc = TrackedContainer(
                 docker_host_id=host_id,

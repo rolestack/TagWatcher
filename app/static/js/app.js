@@ -395,6 +395,26 @@ function containerUpdater(containerId) {
         confirming: false,
         updating: false,
 
+        async _pollUntilApplied() {
+            // Poll /status every 15s until has_update clears (agent applied the update).
+            // Gives up after 40 attempts (~10 minutes).
+            for (let i = 0; i < 40; i++) {
+                await new Promise(r => setTimeout(r, 15000));
+                try {
+                    const resp = await fetch(`/containers/${containerId}/status`);
+                    if (!resp.ok) continue;
+                    const d = await resp.json();
+                    if (!d.has_update) {
+                        window.dispatchEvent(new CustomEvent('tw:check-result', {
+                            detail: { has_update: false, latest_tag: d.latest_tag }
+                        }));
+                        twShowToast('Update applied successfully', 'success', 4000);
+                        return;
+                    }
+                } catch (_) { /* network blip — keep polling */ }
+            }
+        },
+
         async applyUpdate() {
             this.confirming = false;
             this.updating = true;
@@ -403,11 +423,10 @@ function containerUpdater(containerId) {
                 if (resp.ok) {
                     const data = await resp.json();
                     if (data.status === 'queued') {
-                        // Agent update — don't redirect; the agent will apply it on next sync.
+                        // Agent update — don't redirect; poll status until the agent applies it.
                         twShowToast('Update queued. The agent will apply it on the next sync cycle.', 'info', 6000);
                         this.updating = false;
-                        // Auto-trigger a check after a short delay to refresh UI state.
-                        setTimeout(() => window.dispatchEvent(new CustomEvent('tw:do-check')), 3000);
+                        this._pollUntilApplied();
                     } else {
                         // Direct Docker update — redirect to logs tab.
                         const url = new URL(window.location.href);

@@ -222,6 +222,21 @@ async def container_logs_ws(
             pass
 
 
+@router.get("/{container_id}/status")
+async def container_status(
+    container_id: uuid.UUID,
+    user: CurrentUser,
+    db: DB,
+):
+    """Lightweight status poll — returns has_update from DB without hitting the registry."""
+    container, host = await _get_container_with_access(container_id, user, db)
+    return {
+        "has_update": container.has_update,
+        "latest_tag": container.latest_tag,
+        "status": container.status,
+    }
+
+
 @router.post("/{container_id}/check")
 async def check_container(
     container_id: uuid.UUID,
