@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign In — TagWatcher</title>
+    <!-- Dark mode: apply before render -->
+    <script>(function(){var t=localStorage.getItem('tw-theme')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('dark');})();</script>
+    <link rel="icon" href="/brand/favicon" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/custom.css" />
+</head>
+<body class="h-full">
+
+{% set has_bg = login_bg_url and login_bg_url.strip() %}
+<div class="relative min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8"
+     {% if has_bg %}
+     style="background-image: url('{{ login_bg_url }}'); background-size: cover; background-position: center;"
+     {% else %}
+     style="background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);"
+     {% endif %}>
+
+    <!-- Background overlay -->
+    {% if has_bg %}
+    <div class="absolute inset-0" style="background:linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.45) 100%)"></div>
+    {% else %}
+    <div class="absolute inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute -top-40 -right-40 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10"></div>
+        <div class="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10"></div>
+    </div>
+    {% endif %}
+
+    <div class="relative sm:mx-auto sm:w-full sm:max-w-md">
+        <!-- Brand -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-xl"
+                 style="background:rgba(255,255,255,0.15);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.25)">
+                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+            </div>
+            <h1 class="text-3xl font-bold text-white tracking-tight" style="text-shadow:0 2px 8px rgba(0,0,0,0.4)">TagWatcher</h1>
+            <p class="mt-2 text-sm" style="color:rgba(255,255,255,0.6)">Docker image update monitoring</p>
+        </div>
+
+        <!-- Login Card -->
+        <div class="rounded-2xl shadow-2xl px-8 py-10"
+             style="background:rgba(255,255,255,0.12);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.2)">
+
+            {% if setup_complete %}
+            <div class="mb-6 p-4 bg-green-500 bg-opacity-20 border border-green-500 border-opacity-30 rounded-lg flex items-center space-x-3">
+                <svg class="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                <p class="text-sm text-green-300">Admin account created successfully. Please log in.</p>
+            </div>
+            {% endif %}
+
+            {% if error %}
+            {% set is_deactivated = 'deactivated' in error.lower() %}
+            <div class="mb-6 p-4 rounded-lg flex items-start space-x-3
+                        {% if is_deactivated %}bg-amber-500 bg-opacity-20 border border-amber-500 border-opacity-30
+                        {% else %}bg-red-500 bg-opacity-20 border border-red-500 border-opacity-30{% endif %}">
+                {% if is_deactivated %}
+                <svg class="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                </svg>
+                <p class="text-sm text-amber-300">{{ error }}</p>
+                {% else %}
+                <svg class="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <p class="text-sm text-red-300">{{ error }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if local_enabled %}
+            <form method="POST" action="/auth/login" class="space-y-5 login-glass" autocomplete="off">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1.5">Username</label>
+                    <input type="text" name="username" required autofocus autocomplete="off"
+                        class="w-full px-4 py-2.5 bg-white bg-opacity-10 border border-white border-opacity-20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1.5">Password</label>
+                    <input type="password" name="password" required autocomplete="new-password"
+                        class="w-full px-4 py-2.5 bg-white bg-opacity-10 border border-white border-opacity-20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" />
+                </div>
+                <button type="submit"
+                    class="w-full px-4 py-3 font-semibold rounded-xl transition-all duration-200"
+                    style="background:rgba(59,130,246,0.85);border:1px solid rgba(96,165,250,0.5);color:#fff;backdrop-filter:blur(8px)"
+                    onmouseover="this.style.background='rgba(59,130,246,1)'"
+                    onmouseout="this.style.background='rgba(59,130,246,0.85)'">
+                    Sign In
+                </button>
+            </form>
+            {% endif %}
+
+            {% if oidc_available %}
+            {% if local_enabled %}
+            <div class="my-6 flex items-center">
+                <div class="flex-1 border-t border-white border-opacity-10"></div>
+                <span class="px-4 text-xs text-gray-500">or</span>
+                <div class="flex-1 border-t border-white border-opacity-10"></div>
+            </div>
+            {% endif %}
+            <a href="/auth/oidc"
+               class="flex items-center justify-center w-full px-4 py-3 font-medium rounded-xl transition-all duration-200"
+               style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:rgba(255,255,255,0.9);backdrop-filter:blur(8px)"
+               onmouseover="this.style.background='rgba(255,255,255,0.22)'"
+               onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="opacity:0.85">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+                {{ sso_label }}
+            </a>
+            {% endif %}
+        </div>
+
+        <!-- Feature pills -->
+        <div class="mt-6 grid grid-cols-3 gap-3 text-center">
+            {% for icon, label in [('🐳', 'Multi-host Docker monitoring'), ('🔔', 'Smart update notifications'), ('👥', 'Team spaces & groups')] %}
+            <div class="p-3 rounded-xl" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1)">
+                <div class="text-xl mb-1">{{ icon }}</div>
+                <p class="text-xs" style="color:rgba(255,255,255,0.5)">{{ label }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Bottom-left: theme toggle -->
+    <div class="absolute bottom-4 left-4" x-data="{
+        theme: localStorage.getItem('tw-theme') || 'system',
+        cycle() {
+            var order = ['system','light','dark'];
+            var next = order[(order.indexOf(this.theme) + 1) % order.length];
+            this.theme = next;
+            localStorage.setItem('tw-theme', next);
+            var dark = next === 'dark' || (next === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            document.documentElement.classList.toggle('dark', dark);
+        },
+        get icon() {
+            return this.theme === 'dark' ? '🌙' : this.theme === 'light' ? '☀️' : '⚙️';
+        },
+        get label() {
+            return this.theme === 'dark' ? 'Dark' : this.theme === 'light' ? 'Light' : 'Auto';
+        }
+    }">
+        <button @click="cycle()"
+                class="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all"
+                style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.7);backdrop-filter:blur(8px)"
+                onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+                onmouseout="this.style.background='rgba(255,255,255,0.12)'">
+            <span x-text="icon"></span>
+            <span x-text="label"></span>
+        </button>
+    </div>
+</div>
+
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</body>
+</html>

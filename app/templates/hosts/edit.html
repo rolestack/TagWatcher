@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ host.name }} — {{ space.name }}{% endblock %}
+{% block page_title %}Edit Host{% endblock %}
+
+{% block breadcrumb %}
+<nav class="text-xs text-gray-500 mt-0.5">
+    <a href="/spaces" class="hover:text-blue-600">Spaces</a>
+    <span class="mx-1">›</span>
+    <a href="/spaces/{{ space.id }}" class="hover:text-blue-600">{{ space.name }}</a>
+    <span class="mx-1">›</span>
+    <a href="/spaces/{{ space.id }}/hosts" class="hover:text-blue-600">Hosts</a>
+    <span class="mx-1">›</span>
+    <a href="/spaces/{{ space.id }}/hosts/{{ host.id }}" class="hover:text-blue-600">{{ host.name }}</a>
+    <span class="mx-1">›</span>
+    <span>Edit</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+    <form method="post" action="/spaces/{{ space.id }}/hosts/{{ host.id }}" class="space-y-6"
+          x-data="{
+            useTls: {{ 'true' if host.use_tls else 'false' }},
+            autoCheck: {{ 'true' if host.auto_check_updates else 'false' }},
+            scheduleMode: '{{ 'time' if host.check_schedule_time else 'interval' }}',
+            schedHour: '00',
+            schedMin: '00',
+            schedTimes: '{{ host.check_schedule_time or "" }}'.split(',').map(t=>t.trim()).filter(t=>/^\d{2}:\d{2}$/.test(t)),
+            addSchedTime() {
+                const t = this.schedHour.padStart(2,'0') + ':' + this.schedMin.padStart(2,'0');
+                if (!this.schedTimes.includes(t)) this.schedTimes = [...this.schedTimes, t].sort();
+            },
+            removeSchedTime(t) { this.schedTimes = this.schedTimes.filter(x => x !== t); },
+            strategy: '{{ host.version_strategy or 'auto' }}',
+            versionPattern: '{{ host.version_pattern or '' }}',
+            strategyDesc: {
+              auto:   'Auto — 2+ segment tags (e.g. 6.39.0) use Minor; 1-segment (e.g. :17) use Major.',
+              major:  'Major — alert only when next Major releases. e.g. 6.x.x → 7.x.x ✓  |  6.39 → 6.41 silent.',
+              minor:  'Minor — alert on Minor & Patch updates. e.g. 6.39.x → 6.41.x ✓  |  6.x → 7.x silent.',
+              patch:  'Patch — alert on Patch updates only. e.g. 6.39.0 → 6.39.5 ✓  |  6.39 → 6.40 silent.',
+              custom: 'Custom glob pattern — only tags matching the pattern are considered.'
+            }
+          }">
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
+            <h2 class="text-base font-semibold text-gray-900 border-b border-gray-100 pb-3">Connection</h2>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Host Name *</label>
+                <input type="text" name="name" required value="{{ host.name }}"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Docker Host URL *</label>
+                <input type="text" name="host_url" required value="{{ host.host_url }}"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <p class="text-xs text-gray-500 mt-1">
+                    Use <code class="bg-gray-100 px-1 rounded">unix:///var/run/docker.sock</code> for local
+                    or <code class="bg-gray-100 px-1 rounded">tcp://host:2376</code> for remote.
+                </p>
+            </div>
+
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <input type="checkbox" name="is_active" id="is_active"
+                           {{ 'checked' if host.is_active else '' }}
+                           class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    <label for="is_active" class="text-sm font-medium text-gray-700">Enabled</label>
+                </div>
+                <p class="text-xs text-gray-500">Disable to pause monitoring without deleting the host.</p>
+            </div>
+
+            <div>
+                <div class="flex items-center space-x-3">
+                    <input type="checkbox" name="auto_check_updates" id="auto_check_updates"
+                           {{ 'checked' if host.auto_check_updates else '' }}
+                           @change="autoCheck = $event.target.checked"
+                           class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    <label for="auto_check_updates" class="text-sm font-medium text-gray-700">Auto-check for updates</label>
+                </div>
+                <div x-show="autoCheck" x-cloak class="mt-3 pl-7 space-y-3">
+                    <!-- Segmented mode selector -->
+                    <div class="inline-flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
+                        <button type="button"
+                                @click="scheduleMode = 'interval'; schedTimes = []"
+                                :class="scheduleMode === 'interval' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                                class="px-4 py-1.5 transition-colors">
+                            Every N minutes
+                        </button>
+                        <button type="button"
+                                @click="scheduleMode = 'time'"
+                                :class="scheduleMode === 'time' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                                class="px-4 py-1.5 border-l border-gray-200 transition-colors">
+                            Daily at time
+                        </button>
+                    </div>
+                    <!-- Interval input -->
+                    <div x-show="scheduleMode === 'interval'" class="flex items-center gap-2">
+                        <input type="number" :name="scheduleMode === 'interval' ? 'check_interval_minutes' : ''" min="5" max="10080"
+                               value="{{ host.check_interval_minutes or '' }}"
+                               placeholder="{{ settings.CHECK_INTERVAL_MINUTES }}"
+                               class="w-28 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <span class="text-xs text-gray-500">minutes</span>
+                        <span class="text-xs text-gray-400">— leave blank for global default ({{ settings.CHECK_INTERVAL_MINUTES }} min)</span>
+                    </div>
+                    <!-- Multi-time scheduler -->
+                    <div x-show="scheduleMode === 'time'" class="space-y-3">
+                        <input type="hidden" name="check_schedule_time" :value="schedTimes.join(',')" />
+
+                        <!-- Stepper + Add -->
+                        <div class="flex items-center gap-2 select-none">
+                            <!-- Hour -->
+                            <div class="flex flex-col items-center border border-gray-300 rounded-lg overflow-hidden">
+                                <button type="button" @click="schedHour = String((parseInt(schedHour||0)+1)%24).padStart(2,'0')"
+                                        class="w-10 h-6 flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>
+                                </button>
+                                <input type="text" x-model="schedHour" maxlength="2"
+                                       @focus="$event.target.select()"
+                                       @blur="schedHour = String(Math.min(23,Math.max(0,parseInt(schedHour)||0))).padStart(2,'0')"
+                                       @keydown.up.prevent="schedHour = String((parseInt(schedHour||0)+1)%24).padStart(2,'0')"
+                                       @keydown.down.prevent="schedHour = String(((parseInt(schedHour||0)-1)+24)%24).padStart(2,'0')"
+                                       @keydown.enter="$event.target.blur()"
+                                       class="w-10 h-8 text-center text-sm font-bold tabular-nums text-gray-900 bg-white border-t border-b border-gray-200 focus:outline-none focus:bg-blue-50 focus:text-blue-700" />
+                                <button type="button" @click="schedHour = String(((parseInt(schedHour||0)-1)+24)%24).padStart(2,'0')"
+                                        class="w-10 h-6 flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                                </button>
+                            </div>
+                            <span class="text-base font-bold text-gray-400">:</span>
+                            <!-- Minute -->
+                            <div class="flex flex-col items-center">
+                                <div class="flex flex-col items-center border border-gray-300 rounded-lg overflow-hidden">
+                                    <button type="button" @click="schedMin = String((parseInt(schedMin||0)+5)%60).padStart(2,'0')"
+                                            class="w-10 h-6 flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>
+                                    </button>
+                                    <input type="text" x-model="schedMin" maxlength="2"
+                                           @focus="$event.target.select()"
+                                           @blur="schedMin = String(Math.min(55,Math.round(Math.max(0,parseInt(schedMin)||0)/5)*5)).padStart(2,'0')"
+                                           @keydown.up.prevent="schedMin = String((parseInt(schedMin||0)+5)%60).padStart(2,'0')"
+                                           @keydown.down.prevent="schedMin = String(((parseInt(schedMin||0)-5)+60)%60).padStart(2,'0')"
+                                           @keydown.enter="$event.target.blur()"
+                                           class="w-10 h-8 text-center text-sm font-bold tabular-nums text-gray-900 bg-white border-t border-b border-gray-200 focus:outline-none focus:bg-blue-50 focus:text-blue-700" />
+                                    <button type="button" @click="schedMin = String(((parseInt(schedMin||0)-5)+60)%60).padStart(2,'0')"
+                                            class="w-10 h-6 flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                </div>
+                                <span class="text-xs text-gray-400 mt-1">{{ system_tz }}</span>
+                            </div>
+                            <button type="button" @click="addSchedTime()"
+                                    class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors">
+                                + Add
+                            </button>
+                        </div>
+
+                        <!-- Added times — separate row -->
+                        <div x-show="schedTimes.length > 0" class="flex flex-wrap gap-1.5 pl-1">
+                            <template x-for="t in schedTimes" :key="t">
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold rounded-full tabular-nums">
+                                    <span x-text="t"></span>
+                                    <button type="button" @click="removeSchedTime(t)"
+                                            class="text-blue-400 hover:text-blue-700 leading-none">✕</button>
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Update settings -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
+            <h2 class="text-base font-semibold text-gray-900 border-b border-gray-100 pb-3">Update Settings</h2>
+
+            <!-- Watcher Tag Version -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Fixed Tag Version</label>
+                <select name="version_strategy" x-model="strategy"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="auto"   {% if host.version_strategy == 'auto'  %}selected{% endif %}>Auto</option>
+                    <option value="major"  {% if host.version_strategy == 'major'  %}selected{% endif %}>Major</option>
+                    <option value="minor"  {% if host.version_strategy == 'minor'  %}selected{% endif %}>Minor</option>
+                    <option value="patch"  {% if host.version_strategy == 'patch'  %}selected{% endif %}>Patch</option>
+                    <option value="custom" {% if host.version_strategy == 'custom' %}selected{% endif %}>Custom Pattern</option>
+                </select>
+                <div x-show="strategy === 'custom'" x-cloak class="mt-2">
+                    <input type="text" name="version_pattern" x-model="versionPattern"
+                           placeholder="e.g. 29.2.* or 2024.*.*"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <p class="text-xs text-gray-400 mt-1">Use <code class="font-mono">*</code> as wildcard. Matched against full tag name (e.g. <code class="font-mono">29.2.*</code> matches 29.2.7, 29.2.12).</p>
+                </div>
+                <p class="mt-2 text-xs font-medium px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700" x-text="strategyDesc[strategy]"></p>
+            </div>
+
+            <!-- Notification Snooze -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Acknowledge Snooze Duration</label>
+                <div class="flex items-center gap-2">
+                    <input type="number" name="notification_snooze_hours" min="1" max="8760"
+                           value="{{ host.notification_snooze_hours }}"
+                           class="w-28 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <span class="text-xs text-gray-500">hours</span>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">When a notification is acknowledged, notifications for that container are suppressed for this duration.</p>
+            </div>
+
+            <!-- Exclude patterns -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Exclude Patterns</label>
+                <p class="text-xs text-gray-500 mb-2">Containers matching these patterns are skipped during update checks. One pattern per line.</p>
+                <textarea name="exclude_patterns" rows="4"
+                          placeholder="tagwatcher:*&#10;coder-*:latest&#10;ghcr.io/myorg/internal-*"
+                          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y">{{ host.exclude_patterns or '' }}</textarea>
+                <p class="text-xs text-gray-400 mt-1">Supports <code class="bg-gray-100 px-1 rounded">*</code> wildcards. Matched against <code class="bg-gray-100 px-1 rounded">image:tag</code> or just the image name.</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
+            <div class="flex items-center space-x-3 border-b border-gray-100 pb-3">
+                <input type="checkbox" name="use_tls" id="use_tls"
+                       @change="useTls = $event.target.checked"
+                       {{ 'checked' if host.use_tls else '' }}
+                       class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                <label for="use_tls" class="text-base font-semibold text-gray-900">TLS</label>
+            </div>
+
+            <div x-show="useTls" x-cloak class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">CA Certificate (PEM)</label>
+                    <textarea name="tls_ca" rows="4" placeholder="-----BEGIN CERTIFICATE-----..."
+                              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none">{{ host.tls_ca or '' }}</textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Client Certificate (PEM)</label>
+                    <textarea name="tls_cert" rows="4" placeholder="-----BEGIN CERTIFICATE-----..."
+                              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none">{{ host.tls_cert or '' }}</textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Client Key (PEM)</label>
+                    <textarea name="tls_key" rows="4" placeholder="-----BEGIN RSA PRIVATE KEY-----..."
+                              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none">{{ host.tls_key or '' }}</textarea>
+                </div>
+            </div>
+
+            <p x-show="!useTls" x-cloak class="text-sm text-gray-400 italic">TLS is disabled for this host.</p>
+        </div>
+
+        <div class="flex items-center justify-between">
+            <a href="/spaces/{{ space.id }}/hosts/{{ host.id }}"
+               class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg transition-colors">
+                Cancel
+            </a>
+            <button type="submit"
+                    class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+                Save Changes
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

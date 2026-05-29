@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+{% block title %}{{ container.name }}{% endblock %}
+{% block page_title %}{{ container.name }}{% endblock %}
+
+{% block breadcrumb %}
+<nav class="text-xs text-gray-500 mt-0.5">
+    {% if host %}
+    <a href="/spaces/{{ host.space_id }}" class="hover:text-blue-600">Space</a>
+    <span class="mx-1">›</span>
+    <a href="/spaces/{{ host.space_id }}/hosts/{{ host.id }}" class="hover:text-blue-600">{{ host.name }}</a>
+    <span class="mx-1">›</span>
+    {% endif %}
+    <span>{{ container.name }}</span>
+</nav>
+{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2">
+    <!-- Reload -->
+    <div x-data="containerReloader('{{ container.id }}')">
+        <button @click="reload()" :disabled="reloading"
+                class="inline-flex items-center px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg disabled:opacity-50 transition-colors">
+            <svg class="w-4 h-4 sm:mr-2" :class="reloading ? 'animate-spin' : ''"
+                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span class="hidden sm:inline" x-text="reloading ? 'Reloading...' : 'Reload'">Reload</span>
+        </button>
+    </div>
+
+    <!-- Apply Update (visible when has_update; hides after successful check with no update) -->
+    {% if container.has_update %}
+    <div x-data="containerUpdater('{{ container.id }}')"
+         @tw:check-result.window="if (!$event.detail.has_update) $el.style.display='none'">
+        <!-- Idle -->
+        <button x-show="!confirming && !updating" @click="confirming = true"
+                class="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+            </svg>
+            <span class="hidden sm:inline">Apply Update</span>
+        </button>
+        <!-- Confirming -->
+        <div x-show="confirming" x-cloak class="flex items-center gap-1.5">
+            <span class="hidden sm:inline text-xs text-gray-600 whitespace-nowrap">Pull &amp; recreate?</span>
+            <button @click="applyUpdate()"
+                    class="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors">
+                Confirm
+            </button>
+            <button @click="confirming = false"
+                    class="px-2.5 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-600 text-xs font-medium rounded-lg transition-colors">
+                Cancel
+            </button>
+        </div>
+        <!-- Updating -->
+        <div x-show="updating" x-cloak class="inline-flex items-center gap-2 px-3 py-2">
+            <svg class="animate-spin w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+            </svg>
+            <span class="hidden sm:inline text-sm text-amber-600 font-medium">Updating...</span>
+        </div>
+        <!-- Error -->
+        <p x-show="error" x-cloak class="text-xs text-red-500 mt-1 max-w-[200px] truncate" x-text="error"></p>
+    </div>
+    {% endif %}
+
+    <!-- Check Updates (matches host detail page style) -->
+    <div x-data="containerChecker('{{ container.id }}')">
+        <button @click="check()" :disabled="checking"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg disabled:hover:bg-blue-600 disabled:opacity-70 transition-colors">
+            <svg class="w-4 h-4 flex-shrink-0" :class="checking ? 'animate-spin' : ''"
+                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="hidden sm:inline" x-text="checking ? 'Checking...' : 'Check Updates'">Check Updates</span>
+        </button>
+        <div x-show="result" x-cloak class="mt-1 text-xs text-right"
+             :class="result?.error ? 'text-red-500' : result?.has_update ? 'text-amber-600' : 'text-green-600'">
+            <span x-text="result?.error || (result?.has_update ? '⚠ ' + result?.latest_tag : '✓ Up to date')"></span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div x-data="{
+    has_update: {{ 'true' if container.has_update else 'false' }},
+    latest_tag: '{{ container.latest_tag or '' }}'
+}" @tw:check-result.window="has_update = $event.detail.has_update; latest_tag = $event.detail.latest_tag || latest_tag">
+
+<!-- Update banner -->
+<div x-show="has_update" x-cloak
+     class="bg-amber-50 border border-amber-200 rounded-xl p-3 md:p-4 mb-6 flex items-start space-x-3">
+    <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.994L13.732 4c-.77-1.327-2.694-1.327-3.464 0L3.34 16.006c-.77 1.327.193 2.994 1.732 2.994z" />
+    </svg>
+    <div class="flex-1 min-w-0">
+        <h3 class="text-sm font-semibold text-amber-800">Update Available</h3>
+        <p class="text-sm text-amber-700 mt-0.5">
+            A newer version <strong x-text="latest_tag"></strong> is available
+            {% if container.release_date %}
+            (released {{ container.release_date.strftime('%Y-%m-%d') if container.release_date else '' }})
+            {% endif %}.
+            Use the <strong>Apply Update</strong> button in the toolbar above.
+        </p>
+    </div>
+</div>
+<!-- Info cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">Image</p>
+        <p class="text-sm font-mono text-gray-900 break-all">{{ container.image }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">Current Tag</p>
+        <code class="text-sm bg-gray-100 px-2 py-0.5 rounded">{{ container.tag }}</code>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">Latest Tag</p>
+        <code x-show="latest_tag" x-cloak
+              class="text-sm px-2 py-0.5 rounded"
+              :class="has_update ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'"
+              x-text="latest_tag"></code>
+        <span x-show="!latest_tag" class="text-sm text-gray-400 italic"
+              {% if container.latest_tag %}x-cloak{% endif %}>Not checked</span>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">Status</p>
+        <span class="inline-flex items-center">
+            <span class="status-dot {{ container.status }} mr-1.5"></span>
+            <span class="text-sm text-gray-700 capitalize">{{ container.status }}</span>
+        </span>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- Digest info -->
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <h3 class="font-semibold text-gray-900 mb-4">Image Details</h3>
+        <dl class="space-y-3">
+            <div class="text-sm">
+                <dt class="text-gray-500 mb-0.5">Current Digest</dt>
+                <dd class="font-mono text-xs text-gray-700 break-all">{{ container.digest or '—' }}</dd>
+            </div>
+            <div class="text-sm">
+                <dt class="text-gray-500 mb-0.5">Latest Digest</dt>
+                <dd class="font-mono text-xs text-gray-700 break-all">{{ container.latest_digest or '—' }}</dd>
+            </div>
+            <div class="flex justify-between text-sm">
+                <dt class="text-gray-500">Release Date</dt>
+                <dd class="text-gray-900">
+                    {{ container.release_date.strftime('%Y-%m-%d') if container.release_date else '—' }}
+                </dd>
+            </div>
+            <div class="flex justify-between text-sm">
+                <dt class="text-gray-500">Docker Host</dt>
+                <dd class="text-gray-900">
+                    {% if host %}
+                    <a href="/spaces/{{ host.space_id }}/hosts/{{ host.id }}" class="text-blue-600 hover:underline">
+                        {{ host.name }}
+                    </a>
+                    {% else %}
+                    Unknown
+                    {% endif %}
+                </dd>
+            </div>
+            <div class="flex justify-between text-sm">
+                <dt class="text-gray-500">Last Checked</dt>
+                <dd class="text-gray-900">
+                    {{ container.last_checked_at | localtime(user) if container.last_checked_at else 'Never' }}
+                </dd>
+            </div>
+            <div class="flex justify-between text-sm">
+                <dt class="text-gray-500">Container ID</dt>
+                <dd class="font-mono text-gray-900">{{ container.container_id }}</dd>
+            </div>
+        </dl>
+
+        <!-- Watcher Tag Version -->
+        <div class="mt-5 pt-4 border-t border-gray-100"
+             x-data="{
+                 strategy: '{{ container.version_strategy_override or '' }}',
+                 pattern: '{{ container.version_pattern or '' }}',
+                 saving: false,
+                 saved: false,
+                 strategyDesc: {
+                     '':      'Inherit the tag version setting from the host.',
+                     auto:    'Auto — 2+ segment tags (e.g. 6.39.0) use Minor; 1-segment (e.g. :17) use Major.',
+                     major:   'Major — alert only when next Major releases. e.g. 6.x.x → 7.x.x ✓  |  6.39 → 6.41 silent.',
+                     minor:   'Minor — alert on Minor & Patch updates. e.g. 6.39.x → 6.41.x ✓  |  6.x → 7.x silent.',
+                     patch:   'Patch — alert on Patch updates only. e.g. 6.39.0 → 6.39.5 ✓  |  6.39 → 6.40 silent.',
+                     custom:  'Custom glob pattern — only tags matching the pattern are considered.'
+                 },
+                 init() {
+                     window.__twContainerStrategy = this.strategy;
+                     this.$watch('strategy', v => { window.__twContainerStrategy = v; });
+                 },
+                 async save() {
+                     this.saving = true; this.saved = false;
+                     try {
+                         const url = '/containers/{{ container.id }}/strategy?strategy=' + encodeURIComponent(this.strategy)
+                             + (this.strategy === 'custom' ? '&pattern=' + encodeURIComponent(this.pattern) : '');
+                         const r = await fetch(url, {method: 'PATCH'});
+                         if (r.ok) { this.saved = true; setTimeout(() => this.saved = false, 2000); }
+                     } finally { this.saving = false; }
+                 }
+             }">
+            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Fixed Tag Version</p>
+            <div class="flex items-center gap-2">
+                <select x-model="strategy"
+                        class="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white">
+                    <option value="">Inherit from host</option>
+                    <option value="auto">Auto</option>
+                    <option value="major">Major</option>
+                    <option value="minor">Minor</option>
+                    <option value="patch">Patch</option>
+                    <option value="custom">Custom Pattern</option>
+                </select>
+                <button @click="save()" :disabled="saving || (strategy === 'custom' && !pattern.trim())"
+                        class="px-3 py-1.5 text-sm text-white rounded-lg disabled:opacity-50 transition-colors"
+                        :class="saved ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'">
+                    <span x-show="!saving && !saved">Save</span>
+                    <span x-show="saving" x-cloak>...</span>
+                    <span x-show="saved" x-cloak>✓ Saved</span>
+                </button>
+            </div>
+            <div x-show="strategy === 'custom'" x-cloak class="mt-2">
+                <input type="text" x-model="pattern" placeholder="e.g. 29.2.* or 2024.*.*"
+                       class="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-700 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                <p class="mt-1 text-xs text-gray-400">Use <code class="font-mono">*</code> as wildcard. Pattern is matched against the full tag name.</p>
+            </div>
+            <p class="mt-2 text-xs font-medium px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700"
+               x-text="strategyDesc[strategy]"></p>
+        </div>
+    </div>
+
+    <!-- Notification history -->
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between"
+             x-data="{ snoozed: {{ 'true' if container.snoozed_until and container.snoozed_until > now else 'false' }}, snoozeUntil: '{{ container.snoozed_until | localtime(user) if container.snoozed_until else '' }}' }"
+             @log-acked.window="if ($event.detail && $event.detail.snoozeUntil) { snoozed = true; snoozeUntil = $event.detail.snoozeUntil; }">
+            <h3 class="font-semibold text-gray-900">Notifications</h3>
+            <span x-show="snoozed" x-cloak
+                  class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium"
+                  x-text="'Snoozed until ' + snoozeUntil"></span>
+        </div>
+        <div class="p-6">
+            {% set logs = container.notification_logs | sort(attribute='sent_at', reverse=True) %}
+            {% if logs %}
+            <div class="space-y-2">
+                {% for log in logs[:10] %}
+                <div x-data="logAcknowledger('{{ container.id }}', '{{ log.id }}', '{{ log.status }}', '{{ log.status_changed_at | localtime(user) if log.status_changed_at else '' }}')"
+                     class="flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm py-2 border-b border-gray-50 last:border-0 gap-1.5">
+                    <div class="flex items-center gap-2 min-w-0">
+                        {% if log.channel %}
+                        <span class="text-xs text-gray-400 capitalize shrink-0">{{ log.channel.name }}</span>
+                        <span class="text-gray-300 shrink-0">·</span>
+                        {% endif %}
+                        <span class="font-mono text-xs text-gray-500 truncate">{{ log.old_tag or '?' }} → {{ log.new_tag or '?' }}</span>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap shrink-0">
+                        <!-- Status badge -->
+                        <template x-if="status === 'sent'">
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700">SENT</span>
+                        </template>
+                        <template x-if="status === 'ack'">
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-amber-100 text-amber-700">ACK</span>
+                        </template>
+                        <template x-if="status === 'failed'">
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-red-100 text-red-700" title="{{ log.error_message or '' }}">FAILED</span>
+                        </template>
+                        <!-- Timestamp: status_changed_at if acked, otherwise sent_at -->
+                        <span class="text-xs text-gray-400 whitespace-nowrap"
+                              x-text="changedAt || '{{ log.sent_at | localtime(user) }}'"></span>
+                        <!-- Ack button (hidden once acked) -->
+                        <template x-if="status !== 'ack'">
+                            <button @click="ack()" :disabled="acking"
+                                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-40 transition-colors">
+                                <svg class="w-3 h-3 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                <span x-text="acking ? '...' : 'Ack'"></span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-400 italic">No notifications sent yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Log Viewer -->
+<div class="bg-white rounded-xl border border-gray-100 shadow-sm" x-data="logViewer('{{ container.id }}')" x-init="init()">
+    <div class="px-4 md:px-6 py-3 md:py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center space-x-3">
+            <h3 class="font-semibold text-gray-900">Live Logs</h3>
+            <span class="flex items-center space-x-1.5 text-xs"
+                  :class="connected ? 'text-green-600' : 'text-gray-400'">
+                <span class="w-2 h-2 rounded-full inline-block"
+                      :class="connected ? 'bg-green-500 animate-pulse' : 'bg-gray-300'"></span>
+                <span x-text="connected ? 'Connected' : (connecting ? 'Connecting...' : 'Disconnected')"></span>
+            </span>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+            <label class="flex items-center space-x-1.5 text-xs text-gray-600">
+                <input type="checkbox" x-model="autoScroll" class="w-3 h-3 rounded" />
+                <span>Auto-scroll</span>
+            </label>
+            <button @click="clear()" class="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100">Clear</button>
+            <button data-copy-btn @click="copyLogs()"
+                    class="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100">Copy</button>
+            <template x-if="!connected">
+                <button @click="connect()"
+                        class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg font-medium">
+                    Connect
+                </button>
+            </template>
+            <template x-if="connected">
+                <button @click="disconnect()"
+                        class="text-xs bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded-lg font-medium">
+                    Disconnect
+                </button>
+            </template>
+        </div>
+    </div>
+    <div class="p-4">
+        <div class="log-viewer" x-ref="logOutput" @scroll="onScroll()">
+            <span class="text-gray-500 italic" x-show="!logs && !connected">Click "Connect" to start streaming logs...</span>
+            <span x-text="logs"></span>
+        </div>
+        <div x-show="error" x-cloak class="mt-2 text-xs text-red-500" x-text="error"></div>
+    </div>
+</div>
+
+</div>{# end x-data check result wrapper #}
+{% endblock %}

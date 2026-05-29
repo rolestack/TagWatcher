@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% from "_icons.html" import space_icon %}
+{% block title %}{{ space.name }}{% endblock %}
+{% block page_title %}{{ space.name }}{% endblock %}
+
+{% block breadcrumb %}
+<nav class="text-xs text-gray-500 mt-0.5">
+    <a href="/spaces" class="hover:text-blue-600">Spaces</a>
+    <span class="mx-1">›</span>
+    <span>{{ space.name }}</span>
+</nav>
+{% endblock %}
+
+{% block header_actions %}
+{% if user.is_admin %}
+<a href="/spaces/{{ space.id }}/edit"
+   class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors whitespace-nowrap">
+    <svg class="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    </svg>
+    <span class="hidden sm:inline">Edit</span>
+</a>
+{% endif %}
+<a href="/spaces/{{ space.id }}/hosts"
+   class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors whitespace-nowrap">
+    <span class="hidden sm:inline">Manage </span>Hosts
+</a>
+<a href="/spaces/{{ space.id }}/notifications"
+   class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors whitespace-nowrap">
+    <span class="hidden sm:inline">Manage </span>Notifications
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- Space info -->
+{% if space.description %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 px-6 py-4 mb-6 flex items-center gap-4">
+    {% if space.icon %}
+    {{ space_icon(space, box_class='w-12 h-12', svg_class='w-7 h-7', text_class='text-2xl') }}
+    {% endif %}
+    <p class="text-sm text-gray-600">{{ space.description }}</p>
+</div>
+{% endif %}
+
+<!-- Docker Hosts -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="font-semibold text-gray-900">Docker Hosts</h2>
+        <a href="/spaces/{{ space.id }}/hosts"
+           class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+            Manage →
+        </a>
+    </div>
+    {% if docker_hosts %}
+    <div class="divide-y divide-gray-50">
+        {% for host in docker_hosts %}
+        <a href="/spaces/{{ space.id }}/hosts/{{ host.id }}"
+           class="flex items-center px-4 md:px-6 py-4 hover:bg-gray-50 transition-colors group">
+            <div class="flex-shrink-0 mr-3 md:mr-4">
+                <div class="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-gray-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 md:w-6 md:h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
+                    </svg>
+                </div>
+            </div>
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center flex-wrap gap-1.5">
+                    <p class="text-sm font-medium text-gray-900 group-hover:text-blue-600">{{ host.name }}</p>
+                    {% if host.is_active %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">active</span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500">inactive</span>
+                    {% endif %}
+                    {% if host.use_tls %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700">TLS</span>
+                    {% endif %}
+                </div>
+                <p class="text-xs text-gray-500 font-mono mt-0.5 truncate">{{ host.host_url }}</p>
+            </div>
+            <div class="flex items-center gap-3 ml-3 flex-shrink-0">
+                <div class="text-right text-xs text-gray-500 hidden sm:block">
+                    <p>{{ host.tracked_containers | rejectattr('status', 'equalto', 'removed') | list | length }} containers</p>
+                    {% if host.last_synced_at %}
+                    <p class="text-gray-400">synced {{ host.last_synced_at | localtime(user) }}</p>
+                    {% else %}
+                    <p class="text-gray-400">never synced</p>
+                    {% endif %}
+                </div>
+                <svg class="w-4 h-4 text-gray-400 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="px-6 py-12 text-center">
+        <p class="text-sm text-gray-500 mb-3">No Docker hosts added yet.</p>
+        <a href="/spaces/{{ space.id }}/hosts"
+           class="text-sm text-blue-600 hover:underline">Add a host →</a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Notification Channels -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="font-semibold text-gray-900">Notification Channels</h2>
+        <a href="/spaces/{{ space.id }}/notifications"
+           class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+            Manage →
+        </a>
+    </div>
+    {% if notification_channels %}
+    <div class="divide-y divide-gray-50">
+        {% for ch in notification_channels %}
+        <div class="flex items-center px-4 md:px-6 py-3">
+            <div class="channel-icon channel-{{ ch.channel_type }} mr-3 flex-shrink-0">
+                {% if ch.channel_type == 'slack' %}💬
+                {% elif ch.channel_type == 'discord' %}🎮
+                {% elif ch.channel_type == 'telegram' %}✈️
+                {% elif ch.channel_type == 'zulip' %}🌀
+                {% elif ch.channel_type == 'mattermost' %}💼
+                {% elif ch.channel_type == 'teams' %}🟦
+                {% endif %}
+            </div>
+            <div class="flex-1">
+                <p class="text-sm font-medium text-gray-900">{{ ch.name }}</p>
+                <p class="text-xs text-gray-500 capitalize">{{ ch.channel_type }}</p>
+            </div>
+            {% if ch.is_active %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">active</span>
+            {% else %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500">inactive</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="px-6 py-10 text-center">
+        <p class="text-sm text-gray-500 mb-3">No notification channels configured.</p>
+        <a href="/spaces/{{ space.id }}/notifications"
+           class="text-sm text-blue-600 hover:underline">Add a channel →</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

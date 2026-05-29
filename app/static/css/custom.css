@@ -1,0 +1,294 @@
+/* TagWatcher custom styles */
+
+/* Alpine.js cloak — hide elements until Alpine initialises */
+[x-cloak] { display: none !important; }
+
+/* ── Mobile: prevent iOS auto-zoom on input focus ───────────────────────── */
+/* iOS Safari zooms when focused element has font-size < 16px.               */
+/* We bump all form controls to 16px on mobile only.                         */
+@media (max-width: 767px) {
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="url"],
+    input[type="number"],
+    input[type="search"],
+    input[type="tel"],
+    select,
+    textarea {
+        font-size: 16px !important;
+    }
+}
+
+/* ── Dark Mode ───────────────────────────────────────────────────────────── */
+html.dark { color-scheme: dark; background-color: #0f172a; }
+html.dark body { background-color: #0f172a; }
+
+html.dark .bg-white { background-color: #1e293b !important; }
+html.dark .bg-gray-50 { background-color: #0f172a !important; }
+html.dark .bg-gray-100 { background-color: #1e293b !important; }
+html.dark .bg-gray-200 { background-color: #334155 !important; }
+
+html.dark .text-gray-900 { color: #f1f5f9 !important; }
+html.dark .text-gray-800 { color: #e2e8f0 !important; }
+html.dark .text-gray-700 { color: #cbd5e1 !important; }
+html.dark .text-gray-600 { color: #94a3b8 !important; }
+html.dark .text-gray-500 { color: #94a3b8 !important; }
+html.dark .text-gray-400 { color: #64748b !important; }
+
+html.dark .border-gray-50  { border-color: #1e293b !important; }
+html.dark .border-gray-100 { border-color: #1e293b !important; }
+html.dark .border-gray-200 { border-color: #334155 !important; }
+html.dark .border-gray-300 { border-color: #475569 !important; }
+
+html.dark .divide-gray-50 > * + * { border-color: #1e293b !important; }
+html.dark .divide-gray-100 > * + * { border-color: #1e293b !important; }
+
+html.dark .hover\:bg-gray-50:hover  { background-color: #1e293b !important; }
+html.dark .hover\:bg-gray-100:hover { background-color: #334155 !important; }
+
+/* Blue accent elements in dark mode (chips, badges, etc.) */
+html.dark .bg-blue-50  { background-color: #1e3a5f !important; }
+html.dark .bg-blue-100 { background-color: #1e3a5f !important; }
+html.dark .border-blue-200 { border-color: #2563eb !important; }
+html.dark .text-blue-700 { color: #93c5fd !important; }
+html.dark .text-blue-600 { color: #60a5fa !important; }
+html.dark .text-blue-400 { color: #60a5fa !important; }
+html.dark .hover\:text-blue-700:hover { color: #bfdbfe !important; }
+
+/* Amber/orange accents in dark mode */
+html.dark .bg-amber-50   { background-color: #451a03 !important; }
+html.dark .bg-amber-100  { background-color: #451a03 !important; }
+html.dark .border-amber-200 { border-color: #92400e !important; }
+html.dark .text-amber-800 { color: #fcd34d !important; }
+html.dark .text-amber-700 { color: #fbbf24 !important; }
+html.dark .text-amber-600 { color: #f59e0b !important; }
+
+/* Green accents in dark mode */
+html.dark .bg-green-50   { background-color: #052e16 !important; }
+html.dark .bg-green-100  { background-color: #052e16 !important; }
+html.dark .text-green-800 { color: #86efac !important; }
+html.dark .text-green-700 { color: #4ade80 !important; }
+html.dark .text-green-600 { color: #4ade80 !important; }
+
+/* Red accents in dark mode */
+html.dark .bg-red-50   { background-color: #450a0a !important; }
+html.dark .bg-red-100  { background-color: #450a0a !important; }
+html.dark .text-red-700 { color: #fca5a5 !important; }
+html.dark .text-red-600 { color: #fca5a5 !important; }
+html.dark .text-red-500 { color: #f87171 !important; }
+
+html.dark header { background-color: #1e293b !important; border-color: #334155 !important; }
+/* Desktop brand section border in dark mode */
+html.dark header a.border-r { border-right-color: #334155 !important; }
+html.dark header a.border-r:hover { background-color: #0f172a !important; }
+
+html.dark input[type="text"],
+html.dark input[type="email"],
+html.dark input[type="password"],
+html.dark input[type="url"],
+html.dark input[type="number"],
+html.dark select,
+html.dark textarea {
+    background-color: #0f172a !important;
+    border-color: #475569 !important;
+    color: #f1f5f9 !important;
+}
+html.dark input::placeholder { color: #64748b !important; }
+
+/* Login page glass inputs — override dark mode (higher specificity wins) */
+html .login-glass input[type="text"],
+html .login-glass input[type="password"],
+html.dark .login-glass input[type="text"],
+html.dark .login-glass input[type="password"] {
+    background-color: rgba(255,255,255,0.08) !important;
+    border-color: rgba(255,255,255,0.18) !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+}
+html .login-glass input[type="text"]::placeholder,
+html .login-glass input[type="password"]::placeholder,
+html.dark .login-glass input[type="text"]::placeholder,
+html.dark .login-glass input[type="password"]::placeholder {
+    color: rgba(255,255,255,0.35) !important;
+}
+html .login-glass input[type="text"]:focus,
+html .login-glass input[type="password"]:focus,
+html.dark .login-glass input[type="text"]:focus,
+html.dark .login-glass input[type="password"]:focus {
+    background-color: rgba(255,255,255,0.13) !important;
+    border-color: rgba(99,179,237,0.6) !important;
+}
+
+html.dark .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important; }
+html.dark .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8) !important; }
+
+html.dark .flash-success { background-color: #14532d; border-color: #166534; color: #86efac; }
+html.dark .flash-error   { background-color: #7f1d1d; border-color: #991b1b; color: #fca5a5; }
+html.dark .flash-info    { background-color: #1e3a5f; border-color: #1e40af; color: #93c5fd; }
+
+html.dark footer { border-color: #334155 !important; color: #475569 !important; }
+
+/* Terminal / log viewer */
+.log-viewer {
+    background-color: #0d1117;
+    color: #c9d1d9;
+    font-family: 'Fira Code', 'Courier New', monospace;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+@media (min-width: 768px) {
+    .log-viewer { height: 500px; }
+}
+
+.log-viewer::-webkit-scrollbar {
+    width: 6px;
+}
+.log-viewer::-webkit-scrollbar-track {
+    background: #161b22;
+}
+.log-viewer::-webkit-scrollbar-thumb {
+    background: #30363d;
+    border-radius: 3px;
+}
+
+/* Sidebar active link */
+.sidebar-link.active {
+    background-color: #1e40af;
+    color: #ffffff;
+}
+
+/* Badge styles */
+.badge-update {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background-color: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.badge-update-critical {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border-color: #fca5a5;
+}
+
+/* Status indicators */
+.status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+.status-dot.running { background-color: #22c55e; }
+.status-dot.stopped, .status-dot.exited { background-color: #ef4444; }
+.status-dot.paused { background-color: #f59e0b; }
+.status-dot.removed { background-color: #9ca3af; }
+
+/* Card hover */
+.card-hover {
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.card-hover:hover {
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+/* Flash messages */
+.flash-success { background-color: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+.flash-error { background-color: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+.flash-info { background-color: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+
+/* Loading spinner */
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #e5e7eb;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Notification channel icons */
+.channel-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+}
+.channel-slack { background-color: #4a154b; color: #e01e5a; }
+.channel-discord { background-color: #5865f2; color: white; }
+.channel-telegram { background-color: #2ca5e0; color: white; }
+.channel-zulip { background-color: #4a90d9; color: white; }
+.channel-mattermost { background-color: #0058cc; color: white; }
+
+/* Modal overlay */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Responsive table wrapper */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+
+/* ── Light mode sidebar ──────────────────────────────────────────────────── */
+html:not(.dark) #tw-sidebar {
+    background-color: #f1f5f9;
+    border-right-color: #e2e8f0;
+    color: #1e293b;
+}
+html:not(.dark) #tw-sidebar .border-gray-700  { border-color: #e2e8f0 !important; }
+html:not(.dark) #tw-sidebar .text-gray-300    { color: #475569 !important; }
+html:not(.dark) #tw-sidebar .text-gray-400    { color: #94a3b8 !important; }
+html:not(.dark) #tw-sidebar .text-gray-500    { color: #64748b !important; }
+html:not(.dark) #tw-sidebar .text-blue-400    { color: #2563eb !important; }
+/* Active nav item — keep blue background + white text */
+html:not(.dark) #tw-sidebar .bg-gray-700 { background-color: #1e40af !important; color: #ffffff !important; }
+html:not(.dark) #tw-sidebar .sidebar-link.active { background-color: #1e40af !important; color: #ffffff !important; }
+/* Hover: light blue highlight */
+html:not(.dark) #tw-sidebar .hover\:bg-gray-700:hover  { background-color: #dbeafe !important; }
+html:not(.dark) #tw-sidebar .hover\:bg-gray-800:hover  { background-color: #dbeafe !important; }
+html:not(.dark) #tw-sidebar .hover\:text-white:hover   { color: #1e40af !important; }
+/* Active theme-picker button */
+html:not(.dark) #tw-sidebar .bg-gray-600 { background-color: #cbd5e1 !important; color: #0f172a !important; }
+/* User section */
+html:not(.dark) #tw-sidebar .border-t p.text-white { color: #0f172a !important; }
+html:not(.dark) #tw-sidebar .text-red-400             { color: #dc2626 !important; }
+html:not(.dark) #tw-sidebar .hover\:text-red-300:hover { color: #b91c1c !important; }
+
+/* Truncate with tooltip */
+.truncate-tooltip {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: help;
+}

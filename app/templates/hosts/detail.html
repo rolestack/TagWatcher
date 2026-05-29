@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}{{ host.name }} — {{ space.name }}{% endblock %}
+{% block page_title %}{{ host.name }}{% endblock %}
+
+{% block breadcrumb %}
+<nav class="text-xs text-gray-500 mt-0.5">
+    <a href="/spaces" class="hover:text-blue-600">Spaces</a>
+    <span class="mx-1">›</span>
+    <a href="/spaces/{{ space.id }}" class="hover:text-blue-600">{{ space.name }}</a>
+    <span class="mx-1">›</span>
+    <a href="/spaces/{{ space.id }}/hosts" class="hover:text-blue-600">Hosts</a>
+    <span class="mx-1">›</span>
+    <span>{{ host.name }}</span>
+</nav>
+{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2">
+    <a href="/spaces/{{ space.id }}/hosts/{{ host.id }}/edit"
+       class="inline-flex items-center px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-colors"
+       title="Edit">
+        <svg class="w-4 h-4 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+        <span class="hidden sm:inline">Edit</span>
+    </a>
+    <div x-data="hostSyncer('{{ space.id }}', '{{ host.id }}')">
+        <button @click="sync()" :disabled="syncing"
+                class="inline-flex items-center px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+                title="Reload">
+            <svg class="w-4 h-4 sm:mr-2" :class="syncing ? 'animate-spin' : ''"
+                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span class="hidden sm:inline">Reload</span>
+        </button>
+    </div>
+    <div x-data="hostChecker('{{ space.id }}', '{{ host.id }}')">
+        <button @click="check()" :disabled="checking"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg disabled:hover:bg-blue-600 transition-all"
+                :class="checking ? 'min-w-[168px]' : ''">
+            <svg class="w-4 h-4 flex-shrink-0" :class="checking ? 'animate-spin' : ''"
+                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span x-show="!checking" class="hidden sm:inline">Check Updates</span>
+            <span x-show="checking" x-cloak class="hidden sm:flex flex-1 flex-col min-w-0 text-left">
+                <span class="text-xs leading-none mb-1.5 tabular-nums"
+                      x-text="total > 0 ? `${done} / ${total}` : 'Syncing...'"></span>
+                <span class="block h-1 bg-white/30 rounded-full overflow-hidden">
+                    <span class="block h-1 bg-white rounded-full transition-all duration-300"
+                          :class="total === 0 ? 'animate-pulse' : ''"
+                          :style="total > 0 ? `width: ${progress}%` : 'width: 40%'"></span>
+                </span>
+            </span>
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Sync error alert -->
+{% if host.last_sync_error %}
+<div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start space-x-3">
+    <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <div>
+        <p class="text-sm font-medium text-red-700">Last sync failed</p>
+        <p class="text-xs text-red-600 mt-0.5 font-mono">{{ host.last_sync_error }}</p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Host info card -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 mb-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+        <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Host URL</p>
+            <p class="mt-1 text-sm font-mono text-gray-900 break-all">{{ host.host_url }}</p>
+        </div>
+        <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Status</p>
+            <div class="mt-1">
+                {% if not host.is_active %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                    <span class="status-dot removed mr-1.5"></span>Disabled
+                </span>
+                {% elif host.last_sync_error %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                    <span class="status-dot exited mr-1.5"></span>Error
+                </span>
+                {% elif host.last_synced_at %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                    <span class="status-dot running mr-1.5"></span>Connected
+                </span>
+                {% else %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                    <span class="status-dot mr-1.5"></span>Not synced
+                </span>
+                {% endif %}
+            </div>
+        </div>
+        <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">TLS</p>
+            <p class="mt-1 text-sm text-gray-900">{{ 'Enabled' if host.use_tls else 'Disabled' }}</p>
+        </div>
+        <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Last Synced</p>
+            <p class="mt-1 text-sm text-gray-900">
+                {% if host.last_synced_at %}
+                {{ host.last_synced_at | localtime(user) }}
+                {% else %}
+                <span class="text-gray-400 italic">Never</span>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Containers table -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="font-semibold text-gray-900">
+            Containers
+            <span class="ml-2 text-sm font-normal text-gray-500">({{ containers|length }})</span>
+        </h2>
+        {% set update_count = containers | selectattr('has_update') | list | length %}
+        {% if update_count > 0 %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+            ⚠ {{ update_count }} update{{ 's' if update_count != 1 }} available
+        </span>
+        {% endif %}
+    </div>
+
+    {% if containers %}
+    <div class="table-responsive">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 border-b border-gray-100">
+                    <th class="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Container</th>
+                    <th class="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Image</th>
+                    <th class="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell w-28">Status</th>
+                    <th class="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-28">Latest</th>
+                    <th class="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden lg:table-cell w-28">Checked</th>
+                    <th class="text-right px-4 md:px-6 py-3 w-12"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for c in containers %}
+                <tr class="hover:bg-gray-50">
+                    <td class="py-3 pl-3 md:pl-5 pr-3 md:pr-6 {% if c.has_update %}border-l-2 border-amber-400{% else %}border-l-2 border-transparent{% endif %}">
+                        {% if c.name %}
+                        <p class="font-medium text-gray-900 text-sm">{{ c.name }}</p>
+                        <p class="text-xs text-gray-400 font-mono mt-0.5">{{ c.container_id[:12] }}</p>
+                        <!-- Image shown inline on xs only -->
+                        <p class="text-xs font-mono text-gray-500 mt-0.5 sm:hidden truncate max-w-[160px]">{{ c.image }}:{{ c.tag }}</p>
+                        {% else %}
+                        <p class="text-sm font-mono text-gray-600">{{ c.container_id[:12] }}</p>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 md:px-6 py-3 hidden sm:table-cell">
+                        <span class="text-xs font-mono text-gray-700">{{ c.image }}:{{ c.tag }}</span>
+                    </td>
+                    <td class="px-4 md:px-6 py-3 hidden md:table-cell">
+                        <span class="inline-flex items-center">
+                            <span class="status-dot {{ c.status }} mr-1.5"></span>
+                            <span class="text-xs text-gray-600 capitalize">{{ c.status }}</span>
+                        </span>
+                    </td>
+                    <td class="px-4 md:px-6 py-3 whitespace-nowrap">
+                        {% if c.id in excluded_ids %}
+                        <span class="text-xs text-gray-400 italic">Excluded</span>
+                        {% elif c.has_update %}
+                        <span class="text-xs font-semibold font-mono text-amber-500">{{ c.latest_tag }}</span>
+                        {% elif c.last_checked_at and (c.latest_tag or c.latest_digest) %}
+                        <span class="text-xs text-green-600 font-medium">✓ Current</span>
+                        {% elif c.last_checked_at %}
+                        <span class="text-xs text-gray-400 italic" title="Registry unreachable or private image">No data</span>
+                        {% else %}
+                        <span class="text-xs text-gray-400">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 md:px-6 py-3 text-xs text-gray-500 whitespace-nowrap hidden lg:table-cell">
+                        {% if c.last_checked_at %}
+                        {{ c.last_checked_at | localtime(user) }}
+                        {% else %}
+                        <span class="text-gray-400">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 md:px-6 py-3 text-right">
+                        <a href="/containers/{{ c.id }}"
+                           class="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                            View →
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="px-6 py-12 text-center">
+        <svg class="mx-auto w-10 h-10 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+        <p class="text-sm text-gray-500">No containers found. Try syncing to discover running containers.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

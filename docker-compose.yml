@@ -1,0 +1,43 @@
+services:
+  tagwatcher:
+    image: tagwatcher:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: TagWatcher
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # DATABASE_URL is intentionally NOT set here.
+      # Configure it through the web setup wizard on first launch.
+      # The connection details are saved to /ap/data/compose/tagwatcher/data/tagwatcher.json (see volume below).
+      #
+      # If you prefer to skip the DB step in the wizard, uncomment the line below:
+      # DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tagwatcher}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tagwatcher}
+      BEHIND_PROXY: "true"
+    # Add the host's docker group so the container user can access /var/run/docker.sock.
+    # Find your docker GID with: stat -c '%g' /var/run/docker.sock
+    # Then set DOCKER_GID in your .env file (default 999 works on most systems).
+    group_add:
+      - "${DOCKER_GID:-999}"
+    volumes:
+      # Persists tagwatcher.json (DB config, etc.) across container restarts — required
+      - tagwatcher-data:/app/data
+      # Application logs
+      - tagwatcher-logs/data/logs:/app/logs
+      # logging.properties
+      - ./logging.properties:/app/logging.properties:ro
+      # Uploaded brand assets (favicon, background image, etc.)
+      - tagwatcher-uploads:/app/app/static/uploads
+      # Uncomment to monitor the local Docker host directly
+      #- /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "0.0.0.0:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/auth/setup"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3

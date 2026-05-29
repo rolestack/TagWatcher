@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% from "_icons.html" import space_icon %}
+{% block title %}Spaces{% endblock %}
+{% block page_title %}Spaces{% endblock %}
+
+{% block header_actions %}
+{% if user.is_admin %}
+<button @click="$dispatch('open-create-space')"
+        class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+    </svg>
+    New Space
+</button>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Create Space Modal (admin only) -->
+{% if user.is_admin %}
+<div x-data="{
+        open: false,
+        icon: '',
+        icons: [
+            '🖥️','🗄️','💻','📡','🌐','☁️',
+            '🐳','🐧','📦','🚀','⚙️','🔧',
+            '🛡️','🔒','🔑','🔐','🧱','🔗',
+            '🏠','🏢','🏭','🏗️','🌍','🌿',
+            '🟢','🔵','🟡','🔴','🟣','🟠',
+            '⚡','🔥','🌟','💡','🎯','🧩',
+        ],
+        techIcons: TW_TECH_ICONS,
+    }" @open-create-space.window="open = true; icon = ''">
+    <div class="modal-overlay" x-show="open" x-cloak @click.self="open = false">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6" @click.stop>
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Create New Space</h3>
+            <form method="post" action="/spaces" class="space-y-4">
+                <input type="hidden" name="icon" :value="icon" />
+
+                <!-- Icon picker -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Icon <span class="text-gray-400 font-normal">(optional)</span></label>
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                             :class="icon ? (techIcons[icon] ? 'bg-gray-50 border border-gray-100' : 'bg-gray-100') : 'bg-gradient-to-br from-blue-500 to-indigo-600'">
+                            <template x-if="icon && techIcons[icon]">
+                                <span x-html="techIcons[icon]"></span>
+                            </template>
+                            <template x-if="icon && !techIcons[icon]">
+                                <span x-text="icon" class="text-xl"></span>
+                            </template>
+                            <template x-if="!icon">
+                                <span class="text-white font-bold text-sm">?</span>
+                            </template>
+                        </div>
+                        <button type="button" x-show="icon" @click="icon = ''"
+                                class="text-xs text-red-500 hover:text-red-700">Remove</button>
+                    </div>
+                    <div class="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
+                        <!-- Emoji grid -->
+                        <div class="grid grid-cols-9 gap-1">
+                            <template x-for="e in icons" :key="e">
+                                <button type="button" @click="icon = e"
+                                        class="w-8 h-8 flex items-center justify-center text-lg rounded-lg transition-colors hover:bg-white hover:shadow-sm"
+                                        :class="icon === e ? 'bg-white shadow-sm ring-2 ring-blue-500' : ''">
+                                    <span x-text="e"></span>
+                                </button>
+                            </template>
+                        </div>
+                        <!-- Tech icons -->
+                        <div class="mt-2 pt-2 border-t border-gray-200 flex items-center gap-1.5">
+                            <span class="text-xs text-gray-400 mr-1">Tech:</span>
+                            <button type="button" @click="icon = '__docker'"
+                                    class="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-white hover:shadow-sm"
+                                    :class="icon === '__docker' ? 'bg-white shadow-sm ring-2 ring-blue-500' : ''"
+                                    title="Docker">
+                                <svg viewBox="0 0 24 24" fill="#2496ED" class="w-5 h-5">
+                                    <rect x="5.5" y="3.5" width="4" height="3" rx="0.5"/>
+                                    <rect x="10.5" y="3.5" width="4" height="3" rx="0.5"/>
+                                    <rect x="0.5" y="7.5" width="4" height="3" rx="0.5"/>
+                                    <rect x="5.5" y="7.5" width="4" height="3" rx="0.5"/>
+                                    <rect x="10.5" y="7.5" width="4" height="3" rx="0.5"/>
+                                    <path d="M22.7 9.1c-.5-.3-1.5-.6-2.6-.4-.3-1.3-1.2-2-1.3-2l-.3-.2-.2.3c-.3.4-.4.9-.5 1.3-.2.9 0 1.8.3 2.5-.3.1-.7.3-1.4.3H.5c-.1.9 0 3 1.3 4.8.9 1.1 2.1 1.6 3.7 1.6 3.6 0 6.3-1.7 7.7-4.8.5 0 1.5 0 2-.9l.1-.2-.1-.1z"/>
+                                </svg>
+                            </button>
+                            <button type="button" @click="icon = '__k8s'"
+                                    class="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-white hover:shadow-sm"
+                                    :class="icon === '__k8s' ? 'bg-white shadow-sm ring-2 ring-blue-500' : ''"
+                                    title="Kubernetes">
+                                <svg viewBox="0 0 24 24" class="w-5 h-5">
+                                    <circle cx="12" cy="12" r="2.5" fill="#326CE5"/>
+                                    <circle cx="12" cy="12" r="9.5" fill="none" stroke="#326CE5" stroke-width="1.5"/>
+                                    <line x1="12" y1="9.5" x2="12" y2="2.5" stroke="#326CE5" stroke-width="1.5" stroke-linecap="round"/>
+                                    <line x1="13.95" y1="10.44" x2="19.43" y2="6.08" stroke="#326CE5" stroke-width="1.5" stroke-linecap="round"/>
+                                    <line x1="14.44" y1="11.44" x2="21.26" y2="14.11" stroke="#326CE5" stroke-width="1.5" stroke-linecap="round"/>
+                                    <line x1="13.08" y1="14.25" x2="16.12" y2="20.56" stroke="#326CE5" stroke-width="1.5" stroke-linecap="round"/>
+                                    <line x1="10.92" y1="14.25" x2="7.88" y2="20.56" stroke="#326CE5" stroke-width="1.5" stroke-linecap="round"/>
+                                    <line x1="9.56" y1="11.44" x2="2.74" y2="14.11" stroke="#326CE5" stroke-width="1.5" stroke-linecap="round"/>
+                                    <line x1="10.05" y1="10.44" x2="4.57" y2="6.08" stroke="#326CE5" stroke-width="1.5" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Space Name *</label>
+                    <input type="text" name="name" required placeholder="e.g. Production"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea name="description" rows="2" placeholder="Optional description..."
+                              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" @click="open = false"
+                            class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+                    <button type="submit"
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg">
+                        Create Space
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if spaces %}
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for space in spaces %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 card-hover">
+        <div class="p-6">
+            <div class="flex items-start justify-between mb-3">
+                {{ space_icon(space) }}
+                {% if user.is_admin %}
+                <div x-data="confirmDelete('/spaces/{{ space.id }}', '/spaces')">
+                    <button @click="doDelete()"
+                            class="text-gray-400 hover:text-red-500 transition-colors p-1 rounded"
+                            title="Delete space">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+            <h3 class="text-base font-semibold text-gray-900 mb-1">{{ space.name }}</h3>
+            {% if space.description %}
+            <p class="text-sm text-gray-500 mb-4 line-clamp-2">{{ space.description }}</p>
+            {% else %}
+            <p class="text-sm text-gray-400 mb-4 italic">No description</p>
+            {% endif %}
+
+            <div class="flex items-center justify-between text-sm text-gray-500 border-t border-gray-50 pt-4">
+                <span>{{ space.docker_hosts|length }} host{{ 's' if space.docker_hosts|length != 1 }}</span>
+                <a href="/spaces/{{ space.id }}"
+                   class="text-blue-600 hover:text-blue-800 font-medium">
+                    View →
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-16 text-center">
+    <svg class="mx-auto w-12 h-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+    </svg>
+    <h3 class="text-base font-semibold text-gray-900 mb-2">No spaces yet</h3>
+    <p class="text-sm text-gray-500 mb-4">
+        {% if user.is_admin %}
+        Create your first space to start adding Docker hosts.
+        {% else %}
+        You don't have access to any spaces yet. Ask an admin to add you to a group with space access.
+        {% endif %}
+    </p>
+    {% if user.is_admin %}
+    <button @click="$dispatch('open-create-space')"
+            class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+        Create Space
+    </button>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

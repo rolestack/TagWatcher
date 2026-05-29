@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Code Injection — System Settings{% endblock %}
+{% block page_title %}Code Injection{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+    {% if saved %}
+    <div class="p-4 bg-green-50 border border-green-200 rounded-xl flex items-center space-x-3">
+        <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        <p class="text-sm text-green-700 font-medium">Settings saved.</p>
+    </div>
+    {% endif %}
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-5 border-b border-gray-100">
+            <h2 class="text-base font-semibold text-gray-900">Code Injection</h2>
+            <p class="text-xs text-gray-500 mt-0.5">HTML injected as a fixed bar at the top and bottom of every page.</p>
+        </div>
+        <form method="POST" action="/admin/settings/injection" class="px-6 py-6 space-y-6">
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Header</label>
+                <p class="text-xs text-gray-400 mb-2">Rendered as a fixed bar above the navigation — pushes the page down.</p>
+                <textarea name="custom_head_html" rows="6"
+                    placeholder="<!-- e.g. <div style=&quot;background:#1d4ed8;color:#fff;text-align:center;padding:8px;&quot;>Maintenance tonight at 22:00</div> -->"
+                    class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400">{{ data.custom_head_html or '' }}</textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Footer</label>
+                <p class="text-xs text-gray-400 mb-2">Rendered as a fixed bar below the page — pushes the page up.</p>
+                <textarea name="custom_footer_html" rows="6"
+                    placeholder="<!-- e.g. <div style=&quot;background:#111827;color:#9ca3af;text-align:center;padding:8px;font-size:12px;&quot;>© 2025 My Company</div> -->"
+                    class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400">{{ data.custom_footer_html or '' }}</textarea>
+            </div>
+
+            <div class="flex justify-end pt-1">
+                <button type="submit"
+                    class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
+                    Save
+                </button>
+            </div>
+        </form>
+    </div>
+
+</div>
+{% endblock %}

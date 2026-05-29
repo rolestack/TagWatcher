@@ -1,0 +1,147 @@
+# TagWatcher
+
+A self-hosted web application that monitors container images for updates and sends notifications when a new version is available.
+
+Register your hosts, and TagWatcher will periodically compare running container image tags and digests against the registry — notifying you via Slack, Discord, Telegram, and more.
+
+## Features
+
+- **Multi-host** — Connect multiple remote hosts over TCP or Unix socket
+- **Multi-tenancy** — Isolate hosts, channels, and users with Spaces and Groups
+- **Flexible scheduling** — Check on a fixed interval or at specific times of day
+- **Version strategies** — Control update scope: Auto / Major / Minor / Patch / Custom glob
+- **Notification channels** — Slack · Discord · Telegram · Mattermost · Zulip · Microsoft Teams
+- **ACK & Snooze** — Acknowledge notifications and suppress re-alerts for a configurable period
+- **Live logs** — Stream container logs in real time over WebSocket
+- **OIDC / SSO** — OpenID Connect support (Keycloak, Authentik, Google, etc.)
+- **Audit log** — Full record of all user and admin actions
+- **Setup wizard** — Configure everything, including the database connection, from the browser on first launch
+
+## Quick Start
+
+**Requirements:** Docker, Docker Compose, a PostgreSQL instance
+
+### 1. Create the environment file
+
+```bash
+cp .env.example .env
+```
+
+At minimum, set these two values:
+
+```env
+APP_URL=https://tagwatcher.example.com
+SECRET_KEY=replace-with-a-long-random-string
+```
+
+`APP_URL` accepts an IP address or a domain name, with or without HTTPS.
+
+Generate a secure secret key:
+
+```bash
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+### 2. Start the container
+
+```bash
+docker compose up -d
+```
+
+### 3. Complete the setup wizard
+
+Open `http://your-server-ip:8000` in your browser and follow the wizard to configure the database connection and create an admin account.
+
+> **Monitoring the local host via Unix socket**
+> Uncomment the socket mount in `docker-compose.yml` and set `DOCKER_GID` to match the socket GID:
+> ```bash
+> stat -c '%g' /var/run/docker.sock
+> ```
+> ```yaml
+> - /var/run/docker.sock:/var/run/docker.sock:ro
+> ```
+
+---
+
+## Database Setup
+
+TagWatcher uses PostgreSQL. The database connection is configured through the **web setup wizard** on first launch — no manual steps required.
+
+If you are managing your own PostgreSQL server and need to create the user and database beforehand, run the following as a superuser:
+
+```sql
+CREATE USER tagwatcher WITH PASSWORD 'changeme';
+CREATE DATABASE tagwatcher OWNER tagwatcher;
+\c tagwatcher
+GRANT USAGE  ON SCHEMA public TO tagwatcher;
+GRANT CREATE ON SCHEMA public TO tagwatcher;
+```
+
+> Change the password before running in any non-local environment.
+
+---
+
+## Environment Variables
+
+| Variable | Default | Required | Description |
+|----------|---------|:--------:|-------------|
+| `APP_URL` | `http://localhost:8000` | ✅ | Publicly accessible URL of the service. Used to generate links in notifications. |
+| `SECRET_KEY` | *(must change)* | ✅ | Session signing key. Use a long random string. |
+| `APP_NAME` | `TagWatcher` | | Service name shown in the UI. |
+| `DEBUG` | `false` | | Enable debug mode. |
+| `LOG_LEVEL` | `INFO` | | Log level: `DEBUG` / `INFO` / `WARNING` / `ERROR` |
+| `LOCAL_LOGIN_ENABLED` | `true` | | Allow username/password login. Set to `false` to enforce SSO-only. |
+| `OIDC_PROVIDER_URL` | — | | OIDC issuer URL (e.g. `https://accounts.google.com`). |
+| `OIDC_CLIENT_ID` | — | | OIDC client ID. |
+| `OIDC_CLIENT_SECRET` | — | | OIDC client secret. |
+| `OIDC_SCOPES` | `openid email profile` | | Scopes to request from the OIDC provider. |
+| `CHECK_INTERVAL_MINUTES` | `60` | | Default update check interval when no per-host schedule is set. |
+| `BEHIND_PROXY` | `false` | | Set to `true` when running behind Nginx, Traefik, or any reverse proxy. |
+| `TZ` | `UTC` | | Server timezone (e.g. `Asia/Seoul`). Affects scheduled check times. |
+| `SESSION_COOKIE_NAME` | `tagwatcher_session` | | Session cookie name. |
+| `SESSION_MAX_AGE` | `28800` | | Session lifetime in seconds (default: 8 hours). |
+| `WORKERS` | `2` | | Number of Gunicorn worker processes. |
+| `BIND` | `0.0.0.0:8000` | | Address and port to bind. |
+| `DOCKER_GID` | `999` | | GID of the container runtime socket on the host. Required for local monitoring via Unix socket. |
+
+---
+
+## Reverse Proxy
+
+A ready-to-use Nginx configuration is included in [`nginx.conf`](nginx.conf). It covers:
+
+- Proxy pass to the TagWatcher app
+- WebSocket upgrade for live log streaming
+- `X-Forwarded-*` headers
+- Gzip compression and static file caching
+- Security headers
+- Rate limiting on auth endpoints
+- HTTPS / SSL-TLS server block (commented out, enable for production)
+
+Set `BEHIND_PROXY=true` in `.env` when running behind any reverse proxy so that client IPs are read from the `X-Forwarded-For` header correctly.
+
+---
+
+## Notification Channels
+
+Channels are configured per Space under **Notification Channels**.
+
+| Channel | Required |
+|---------|----------|
+| Slack | Incoming Webhook URL |
+| Discord | Webhook URL |
+| Telegram | Bot Token + Chat ID |
+| Zulip | Site URL, Email, API Key, Stream |
+| Mattermost | Incoming Webhook URL |
+| Microsoft Teams | Incoming Webhook URL |
+
+---
+
+## Upgrade
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+Database schema migrations run automatically on container startup.

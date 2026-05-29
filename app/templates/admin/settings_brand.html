@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Brand — System Settings{% endblock %}
+{% block page_title %}Brand{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+    {% if saved %}
+    <div class="p-4 bg-green-50 border border-green-200 rounded-xl flex items-center space-x-3">
+        <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        <p class="text-sm text-green-700 font-medium">Settings saved.</p>
+    </div>
+    {% endif %}
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-5 border-b border-gray-100">
+            <h2 class="text-base font-semibold text-gray-900">Brand</h2>
+            <p class="text-xs text-gray-500 mt-0.5">Customize the appearance of the login page.</p>
+        </div>
+        <form method="POST" action="/admin/settings/brand" class="px-6 py-6 space-y-8">
+
+            <!-- Login Background -->
+            <div>
+                <p class="text-sm font-medium text-gray-700 mb-3">Login Background</p>
+
+                <input type="text" id="login_bg_input" name="login_bg_url"
+                    value="{{ brand.login_bg_url or '' }}"
+                    placeholder="https://example.com/background.jpg"
+                    oninput="updatePreview('bg')"
+                    class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400" />
+
+                <div class="flex items-center gap-3 my-3">
+                    <div class="flex-1 h-px bg-gray-200"></div>
+                    <span class="text-xs text-gray-400 font-medium">or</span>
+                    <div class="flex-1 h-px bg-gray-200"></div>
+                </div>
+
+                <button type="button" id="bg-upload-btn"
+                    onclick="document.getElementById('bg-file-input').click()"
+                    class="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-300 text-blue-600 text-sm font-medium rounded-xl hover:bg-blue-100 hover:border-blue-400 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                    </svg>
+                    <span>Upload image</span>
+                    <span class="text-xs text-blue-400">PNG · JPG · WEBP · GIF</span>
+                </button>
+                <input type="file" id="bg-file-input" class="hidden" accept="image/*"
+                    onchange="doUpload(this, 'login_bg_input', 'bg-preview', 'bg-upload-btn')" />
+
+                <div id="bg-preview" style="{{ 'display:block' if brand.login_bg_url else 'display:none' }}" class="mt-3">
+                    <div class="flex items-center justify-between mb-1">
+                        <p class="text-xs text-gray-400">Preview</p>
+                        <button type="button" onclick="clearField('login_bg_input','bg-preview')"
+                            class="text-xs text-red-500 hover:text-red-700">Remove</button>
+                    </div>
+                    <div id="bg-preview-img" class="h-20 rounded-xl bg-cover bg-center border border-gray-200"
+                         style="{{ 'background-image:url(' + brand.login_bg_url + ')' if brand.login_bg_url else '' }}"></div>
+                </div>
+                <p class="mt-2 text-xs text-gray-400">Background image for the login page. Leave blank for default gradient.</p>
+            </div>
+
+            <!-- Favicon -->
+            <div>
+                <p class="text-sm font-medium text-gray-700 mb-3">Favicon</p>
+
+                <input type="text" id="favicon_input" name="favicon_url"
+                    value="{{ brand.favicon_url or '' }}"
+                    placeholder="https://example.com/favicon.ico"
+                    oninput="updateFaviconPreview()"
+                    class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400" />
+
+                <div class="flex items-center gap-3 my-3">
+                    <div class="flex-1 h-px bg-gray-200"></div>
+                    <span class="text-xs text-gray-400 font-medium">or</span>
+                    <div class="flex-1 h-px bg-gray-200"></div>
+                </div>
+
+                <button type="button" id="fav-upload-btn"
+                    onclick="document.getElementById('fav-file-input').click()"
+                    class="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-300 text-blue-600 text-sm font-medium rounded-xl hover:bg-blue-100 hover:border-blue-400 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                    </svg>
+                    <span>Upload</span>
+                    <span class="text-xs text-blue-400">.ico · .png · .svg</span>
+                </button>
+                <input type="file" id="fav-file-input" class="hidden" accept=".ico,.png,.svg,.jpg"
+                    onchange="doUpload(this, 'favicon_input', 'fav-preview', 'fav-upload-btn')" />
+
+                <div id="fav-preview" style="{{ 'display:flex' if brand.favicon_url else 'display:none' }}"
+                     class="items-center gap-3 mt-3">
+                    <img id="fav-preview-img" src="{{ brand.favicon_url or '' }}"
+                         class="w-10 h-10 rounded-lg object-contain border border-gray-200 flex-shrink-0" />
+                    <div>
+                        <p id="fav-preview-url" class="text-xs text-gray-500 break-all">{{ brand.favicon_url or '' }}</p>
+                        <button type="button" onclick="clearField('favicon_input','fav-preview')"
+                            class="text-xs text-red-500 hover:text-red-700 mt-0.5">Remove</button>
+                    </div>
+                </div>
+                <p class="mt-2 text-xs text-gray-400">Browser tab icon. Supports .ico, .png, .svg. Leave blank for none.</p>
+            </div>
+
+            <!-- Footer Text -->
+            <div>
+                <p class="text-sm font-medium text-gray-700 mb-1">Footer Text</p>
+                <p class="text-xs text-gray-400 mb-2">Replaces the default "TagWatcher — Docker image update monitor" footer text.</p>
+                <input type="text" name="footer_text"
+                    value="{{ brand.footer_text or '' }}"
+                    placeholder="TagWatcher — Docker image update monitor"
+                    class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400" />
+            </div>
+
+            <div class="flex justify-end pt-1">
+                <button type="submit"
+                    class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
+                    Save
+                </button>
+            </div>
+        </form>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function doUpload(input, fieldId, previewId, btnId) {
+    const file = input.files[0];
+    if (!file) return;
+    const btn = document.getElementById(btnId);
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="text-sm text-blue-400">Uploading...</span>';
+
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+        const r = await fetch('/admin/settings/upload', { method: 'POST', body: fd });
+        const d = await r.json();
+        if (r.ok) {
+            document.getElementById(fieldId).value = d.url;
+            showPreview(fieldId, previewId, d.url);
+        } else {
+            alert(d.detail || 'Upload failed');
+        }
+    } catch(e) {
+        alert('Upload failed: ' + e.message);
+    }
+    btn.disabled = false;
+    btn.innerHTML = orig;
+    input.value = '';
+}
+
+function showPreview(fieldId, previewId, url) {
+    const el = document.getElementById(previewId);
+    if (!url) { el.style.display = 'none'; return; }
+    if (fieldId === 'login_bg_input') {
+        el.style.display = 'block';
+        document.getElementById('bg-preview-img').style.backgroundImage = 'url(' + url + ')';
+    } else {
+        el.style.display = 'flex';
+        document.getElementById('fav-preview-img').src = url;
+        document.getElementById('fav-preview-url').textContent = url;
+    }
+}
+
+function updatePreview(type) {
+    const url = document.getElementById('login_bg_input').value.trim();
+    showPreview('login_bg_input', 'bg-preview', url);
+}
+
+function updateFaviconPreview() {
+    const url = document.getElementById('favicon_input').value.trim();
+    showPreview('favicon_input', 'fav-preview', url);
+}
+
+function clearField(fieldId, previewId) {
+    document.getElementById(fieldId).value = '';
+    document.getElementById(previewId).style.display = 'none';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ space.name }}{% endblock %}
+{% block page_title %}Edit Space{% endblock %}
+
+{% block breadcrumb %}
+<nav class="text-xs text-gray-500 mt-0.5">
+    <a href="/spaces" class="hover:text-blue-600">Spaces</a>
+    <span class="mx-1">›</span>
+    <a href="/spaces/{{ space.id }}" class="hover:text-blue-600">{{ space.name }}</a>
+    <span class="mx-1">›</span>
+    <span>Edit</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+    <form method="post" action="/spaces/{{ space.id }}/edit" class="space-y-6"
+          x-data="{
+              icon: '{{ space.icon or '' }}',
+              icons: [
+                  '🖥️','🗄️','💻','📡','🌐','☁️',
+                  '🐳','🐧','📦','🚀','⚙️','🔧',
+                  '🛡️','🔒','🔑','🔐','🧱','🔗',
+                  '🏠','🏢','🏭','🏗️','🌍','🌿',
+                  '🟢','🔵','🟡','🔴','🟣','🟠',
+                  '⚡','🔥','🌟','💡','🎯','🧩',
+              ],
+              techIcons: TW_TECH_ICONS,
+          }">
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
+            <h2 class="text-base font-semibold text-gray-900 border-b border-gray-100 pb-3">Space Details</h2>
+
+            <!-- Icon picker -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Icon</label>
+                <input type="hidden" name="icon" :value="icon" />
+
+                <!-- Preview + clear -->
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                         :class="icon ? (techIcons[icon] ? 'bg-gray-50 border border-gray-100' : 'bg-gray-100') : 'bg-gradient-to-br from-blue-500 to-indigo-600'">
+                        <template x-if="icon && techIcons[icon]">
+                            <span x-html="techIcons[icon]"></span>
+                        </template>
+                        <template x-if="icon && !techIcons[icon]">
+                            <span x-text="icon" class="text-2xl"></span>
+                        </template>
+                        <template x-if="!icon">
+                            <span class="text-white font-bold text-lg">{{ space.name[0].upper() }}</span>
+                        </template>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">Click an icon to select it</p>
+                        <button type="button" x-show="icon" @click="icon = ''"
+                                class="text-xs text-red-500 hover:text-red-700">
+                            Remove icon
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Picker grid -->
+                <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <!-- Emoji grid -->
+                    <div class="grid grid-cols-9 gap-1">
+                        <template x-for="e in icons" :key="e">
+                            <button type="button" @click="icon = e"
+                                    class="w-9 h-9 flex items-center justify-center text-xl rounded-lg transition-colors hover:bg-white hover:shadow-sm"
+                                    :class="icon === e ? 'bg-white shadow-sm ring-2 ring-blue-500' : ''">
+                                <span x-text="e"></span>
+                            </button>
+                        </template>
+                    </div>
+                    <!-- Tech icons -->
+                    <div class="mt-2.5 pt-2.5 border-t border-gray-200 flex items-center gap-1.5">
+                        <span class="text-xs text-gray-400 mr-1">Tech:</span>
+                        <button type="button" @click="icon = '__docker'"
+                                class="w-9 h-9 flex items-center justify-center rounded-lg transition-colors hover:bg-white hover:shadow-sm"
+                                :class="icon === '__docker' ? 'bg-white shadow-sm ring-2 ring-blue-500' : ''"
+                                title="Docker">
+                            <svg viewBox="0 0 24 24" fill="#2496ED" class="w-6 h-6">
+                                <rect x="5.5" y="3.5" width="4" height="3" rx="0.5"/>
+                                <rect x="10.5" y="3.5" width="4" height="3" rx="0.5"/>
+                                <rect x="0.5" y="7.5" width="4" height="3" rx="0.5"/>
+                                <rect x="5.5" y="7.5" width="4" height="3" rx="0.5"/>
+                                <rect x="10.5" y="7.5" width="4" height="3" rx="0.5"/>
+                                <path d="M22.7 9.1c-.5-.3-1.5-.6-2.6-.4-.3-1.3-1.2-2-1.3-2l-.3-.2-.2.3c-.3.4-.4.9-.5 1.3-.2.9 0 1.8.3 2.5-.3.1-.7.3-1.4.3H.5c-.1.9 0 3 1.3 4.8.9 1.1 2.1 1.6 3.7 1.6 3.6 0 6.3-1.7 7.7-4.8.5 0 1.5 0 2-.9l.1-.2-.1-.1z"/>
+                            </svg>
+                        </button>
+                        <button type="button" @click="icon = '__k8s'"
+                                class="w-9 h-9 flex items-center justify-center rounded-lg transition-colors hover:bg-white hover:shadow-sm"
+                                :class="icon === '__k8s' ? 'bg-white shadow-sm ring-2 ring-blue-500' : ''"
+                                title="Kubernetes">
+                            <svg viewBox="0 0 24 24" class="w-6 h-6">
+                                <circle cx="12" cy="12" r="2.5" fill="#326CE5"/>
+                                <circle cx="12" cy="12" r="9.5" fill="none" stroke="#326CE5" stroke-width="1.5"/>
+                                <line x1="12" y1="9.5" x2="12" y2="2.5" stroke="#326CE5" stroke-width="1.5" stroke-linecap="round"/>
+                                <line x1="13.95" y1="10.44" x2="19.43" y2="6.08" stroke="#326CE5" stroke-width="1.5" stroke-linecap="round"/>
+                                <line x1="14.44" y1="11.44" x2="21.26" y2="14.11" stroke="#326CE5" stroke-width="1.5" stroke-linecap="round"/>
+                                <line x1="13.08" y1="14.25" x2="16.12" y2="20.56" stroke="#326CE5" stroke-width="1.5" stroke-linecap="round"/>
+                                <line x1="10.92" y1="14.25" x2="7.88" y2="20.56" stroke="#326CE5" stroke-width="1.5" stroke-linecap="round"/>
+                                <line x1="9.56" y1="11.44" x2="2.74" y2="14.11" stroke="#326CE5" stroke-width="1.5" stroke-linecap="round"/>
+                                <line x1="10.05" y1="10.44" x2="4.57" y2="6.08" stroke="#326CE5" stroke-width="1.5" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Space Name *</label>
+                <input type="text" name="name" required value="{{ space.name }}"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea name="description" rows="3"
+                          placeholder="Optional description for this space"
+                          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y">{{ space.description or '' }}</textarea>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between">
+            <a href="/spaces/{{ space.id }}"
+               class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg transition-colors">
+                Cancel
+            </a>
+            <button type="submit"
+                    class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+                Save Changes
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
