@@ -4,6 +4,10 @@ import logging
 import shutil
 from typing import Optional
 
+_ERR_USER_NOT_FOUND = "User not found"
+_ERR_GROUP_NOT_FOUND = "Group not found"
+_AUDIT_SETTINGS_UPDATE = "settings.update"
+
 from fastapi import APIRouter, Depends, Request, HTTPException, Form, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -107,7 +111,7 @@ async def update_user(user_id: uuid.UUID, request: Request, payload: UserUpdate,
     result = await db.execute(select(User).where(User.id == user_id))
     target = result.scalar_one_or_none()
     if not target:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=_ERR_USER_NOT_FOUND)
 
     # Prevent self-deactivation
     if payload.is_active is False and target.id == admin.id:
@@ -147,7 +151,7 @@ async def delete_user(user_id: uuid.UUID, request: Request, admin: AdminUser, db
     result = await db.execute(select(User).where(User.id == user_id))
     target = result.scalar_one_or_none()
     if not target:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=_ERR_USER_NOT_FOUND)
 
     # Prevent deleting the last active admin
     if target.is_admin and target.is_active:
@@ -219,7 +223,7 @@ async def delete_group(group_id: uuid.UUID, request: Request, admin: AdminUser, 
     result = await db.execute(select(Group).where(Group.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise HTTPException(status_code=404, detail=_ERR_GROUP_NOT_FOUND)
     gname = group.name
     await db.delete(group)
     await db.commit()
@@ -238,12 +242,12 @@ async def add_user_to_group(
     result = await db.execute(select(Group).where(Group.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise HTTPException(status_code=404, detail=_ERR_GROUP_NOT_FOUND)
 
     result = await db.execute(select(User).where(User.id == user_id))
     target_user = result.scalar_one_or_none()
     if not target_user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=_ERR_USER_NOT_FOUND)
 
     if target_user not in group.users:
         group.users.append(target_user)
@@ -261,12 +265,12 @@ async def remove_user_from_group(group_id: uuid.UUID, user_id: uuid.UUID, reques
     result = await db.execute(select(Group).where(Group.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise HTTPException(status_code=404, detail=_ERR_GROUP_NOT_FOUND)
 
     result = await db.execute(select(User).where(User.id == user_id))
     target_user = result.scalar_one_or_none()
     if not target_user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=_ERR_USER_NOT_FOUND)
 
     if target_user in group.users:
         group.users.remove(target_user)
@@ -285,7 +289,7 @@ async def grant_space_access(
     result = await db.execute(select(Group).where(Group.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise HTTPException(status_code=404, detail=_ERR_GROUP_NOT_FOUND)
 
     result = await db.execute(select(Space).where(Space.id == space_id))
     space = result.scalar_one_or_none()
@@ -307,7 +311,7 @@ async def revoke_space_access(group_id: uuid.UUID, space_id: uuid.UUID, request:
     result = await db.execute(select(Group).where(Group.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise HTTPException(status_code=404, detail=_ERR_GROUP_NOT_FOUND)
 
     result = await db.execute(select(Space).where(Space.id == space_id))
     space = result.scalar_one_or_none()
@@ -431,7 +435,7 @@ async def save_oidc_settings(
 
     await SettingsService.set_many(db, updates)
     from app.services.audit_service import audit as _audit
-    await _audit(db, "settings.update", user=admin, resource_type="settings", resource_name="oidc",
+    await _audit(db, _AUDIT_SETTINGS_UPDATE, user=admin, resource_type="settings", resource_name="oidc",
                  details={"enabled": oidc_enabled == "on", "provider_url": oidc_provider_url.strip() or None},
                  request=request)
     await db.commit()
@@ -452,7 +456,7 @@ async def save_auth_settings(
         SESSION_MAX_AGE_KEY: str(session_max_age),
     })
     from app.services.audit_service import audit as _audit
-    await _audit(db, "settings.update", user=admin, resource_type="settings", resource_name="auth",
+    await _audit(db, _AUDIT_SETTINGS_UPDATE, user=admin, resource_type="settings", resource_name="auth",
                  details={"local_login_enabled": local_login_enabled == "on", "session_max_age": session_max_age},
                  request=request)
     logger.info(f"Auth settings updated by {admin.display_name}")
@@ -476,7 +480,7 @@ async def save_brand_settings(
     from app.templates_setup import site_customization
     site_customization["footer_text"] = footer_text.strip() if footer_text else ""
     from app.services.audit_service import audit as _audit
-    await _audit(db, "settings.update", user=admin, resource_type="settings", resource_name="brand",
+    await _audit(db, _AUDIT_SETTINGS_UPDATE, user=admin, resource_type="settings", resource_name="brand",
                  details={"login_bg_url": login_bg_url, "favicon_url": favicon_url, "footer_text": footer_text},
                  request=request)
     logger.info(f"Brand settings updated by {admin.display_name}")
@@ -513,7 +517,7 @@ async def save_injection_settings(
     site_customization["custom_head_html"] = custom_head_html.strip() if custom_head_html else ""
     site_customization["custom_footer_html"] = custom_footer_html.strip() if custom_footer_html else ""
     from app.services.audit_service import audit as _audit
-    await _audit(db, "settings.update", user=admin, resource_type="settings", resource_name="code_injection",
+    await _audit(db, _AUDIT_SETTINGS_UPDATE, user=admin, resource_type="settings", resource_name="code_injection",
                  details={"header_len": len(custom_head_html or ""), "footer_len": len(custom_footer_html or "")},
                  request=request)
     logger.info(f"Code injection settings updated by {admin.display_name}")

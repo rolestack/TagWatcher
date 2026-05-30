@@ -1,5 +1,7 @@
 import uuid
 import logging
+
+_ERR_CHANNEL_NOT_FOUND = "Channel not found"
 from fastapi import APIRouter, Depends, Request, HTTPException, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -106,7 +108,7 @@ async def update_channel(
     )
     channel = result.scalar_one_or_none()
     if not channel:
-        raise HTTPException(status_code=404, detail="Channel not found")
+        raise HTTPException(status_code=404, detail=_ERR_CHANNEL_NOT_FOUND)
 
     if payload.name is not None:
         channel.name = payload.name
@@ -140,7 +142,7 @@ async def delete_channel(
     )
     channel = result.scalar_one_or_none()
     if not channel:
-        raise HTTPException(status_code=404, detail="Channel not found")
+        raise HTTPException(status_code=404, detail=_ERR_CHANNEL_NOT_FOUND)
 
     cname = channel.name
     await db.delete(channel)
@@ -170,7 +172,7 @@ async def test_channel(
     )
     channel = result.scalar_one_or_none()
     if not channel:
-        raise HTTPException(status_code=404, detail="Channel not found")
+        raise HTTPException(status_code=404, detail=_ERR_CHANNEL_NOT_FOUND)
 
     try:
         await notification_service.send_test_notification(channel, settings.APP_URL)

@@ -3,6 +3,9 @@ import secrets
 from datetime import datetime, timezone
 from typing import Optional
 
+_SETUP_TEMPLATE = "setup.html"
+_SETUP_URL = "/auth/setup"
+
 from fastapi import APIRouter, Depends, Request, HTTPException, status, Form
 from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -76,7 +79,7 @@ async def setup_page(request: Request):
 
     return templates.TemplateResponse(
         request,
-        "setup.html", {"step": step, "error": None}
+        _SETUP_TEMPLATE, {"step": step, "error": None}
     )
 
 
@@ -118,7 +121,7 @@ async def setup_database(
     def err(msg: str):
         return templates.TemplateResponse(
             request,
-            "setup.html", {"step": 1, "error": msg}, status_code=400
+            _SETUP_TEMPLATE, {"step": 1, "error": msg}, status_code=400
         )
 
     url = (
@@ -140,7 +143,7 @@ async def setup_database(
         return err(f"Database initialization failed: {exc}")
 
     logger.info(f"Database configured: {db_host}:{db_port}/{db_name}")
-    return RedirectResponse(url="/auth/setup", status_code=302)
+    return RedirectResponse(url=_SETUP_URL, status_code=302)
 
 
 # ── Step 2: Create local admin account ─────────────────────────────────────
@@ -156,14 +159,14 @@ async def setup_admin(
 ):
     """Create the initial local admin account."""
     if not database.is_initialized():
-        return RedirectResponse(url="/auth/setup", status_code=302)
+        return RedirectResponse(url=_SETUP_URL, status_code=302)
 
     maker = database.get_session_maker()
 
     def err(msg: str):
         return templates.TemplateResponse(
             request,
-            "setup.html", {"step": 2, "error": msg}, status_code=400
+            _SETUP_TEMPLATE, {"step": 2, "error": msg}, status_code=400
         )
 
     async with maker() as db:
@@ -231,13 +234,13 @@ async def login_page(
     setup: Optional[str] = None,
 ):
     if not database.is_initialized():
-        return RedirectResponse(url="/auth/setup", status_code=302)
+        return RedirectResponse(url=_SETUP_URL, status_code=302)
 
     maker = database.get_session_maker()
     async with maker() as db:
         count = await db.scalar(select(func.count()).where(User.is_admin == True))  # noqa: E712
         if not count:
-            return RedirectResponse(url="/auth/setup", status_code=302)
+            return RedirectResponse(url=_SETUP_URL, status_code=302)
         ctx = await _login_context(db, error=error, setup=setup == "1")
 
     if not ctx["local_enabled"] and ctx["oidc_available"]:
@@ -253,7 +256,7 @@ async def login_submit(
     password: str = Form(...),
 ):
     if not database.is_initialized():
-        return RedirectResponse(url="/auth/setup", status_code=302)
+        return RedirectResponse(url=_SETUP_URL, status_code=302)
 
     client_ip = request.client.host if request.client else "unknown"
     if not check_login_rate_limit(client_ip):

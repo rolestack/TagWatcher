@@ -36,6 +36,10 @@ class _HealthCheckFilter(logging.Filter):
 
 logging.getLogger("uvicorn.access").addFilter(_HealthCheckFilter())
 
+_AUTH_SETUP_URL = "/auth/setup"
+_ASSETS_PREFIX = "/assets/"
+_BASE_TEMPLATE = "base.html"
+
 _DEFAULT_SECRET = "change-me-in-production-use-long-random-string"
 if settings.SECRET_KEY == _DEFAULT_SECRET or len(settings.SECRET_KEY) < 32:
     if settings.DEBUG:
@@ -172,7 +176,7 @@ if settings.BEHIND_PROXY:
 # ---------------------------------------------------------------------------
 
 _SETUP_BYPASS = (
-    "/auth/setup",
+    _AUTH_SETUP_URL,
     "/auth/login",
     "/auth/local-login",
     "/auth/logout",
@@ -192,7 +196,7 @@ class SetupGuardMiddleware(BaseHTTPMiddleware):
 
         # Step 1: DB not yet configured
         if not database.is_initialized():
-            return RedirectResponse(url="/auth/setup", status_code=302)
+            return RedirectResponse(url=_AUTH_SETUP_URL, status_code=302)
 
         # Step 2: No admin account yet
         try:
@@ -203,9 +207,9 @@ class SetupGuardMiddleware(BaseHTTPMiddleware):
                     select(func.count()).where(User.is_admin == True)  # noqa: E712
                 )
             if not count:
-                return RedirectResponse(url="/auth/setup", status_code=302)
+                return RedirectResponse(url=_AUTH_SETUP_URL, status_code=302)
         except Exception:
-            return RedirectResponse(url="/auth/setup", status_code=302)
+            return RedirectResponse(url=_AUTH_SETUP_URL, status_code=302)
 
         return await call_next(request)
 
@@ -292,10 +296,10 @@ async def favicon_endpoint():
         raise HTTPException(404)
     url = url.strip()
     if url.startswith("/static/uploads/"):
-        url = "/assets/" + url[len("/static/uploads/"):]
+        url = _ASSETS_PREFIX + url[len("/static/uploads/"):]
     # Serve local uploads directly (avoids redirect — browsers handle favicon redirects unreliably)
-    if url.startswith("/assets/"):
-        filename = url[len("/assets/"):]
+    if url.startswith(_ASSETS_PREFIX):
+        filename = url[len(_ASSETS_PREFIX):]
         file_path = f"app/static/uploads/{filename}"
         try:
             with open(file_path, "rb") as f:
@@ -328,7 +332,7 @@ async def not_found_handler(request: Request, exc):
         return JSONResponse({"detail": detail}, status_code=404)
     return templates.TemplateResponse(
         request,
-        "base.html", {"error": "Page not found (404)"}, status_code=404
+        _BASE_TEMPLATE, {"error": "Page not found (404)"}, status_code=404
     )
 
 
@@ -339,7 +343,7 @@ async def forbidden_handler(request: Request, exc):
         return JSONResponse({"detail": detail}, status_code=403)
     return templates.TemplateResponse(
         request,
-        "base.html", {"error": "Access denied (403)"}, status_code=403
+        _BASE_TEMPLATE, {"error": "Access denied (403)"}, status_code=403
     )
 
 
@@ -350,5 +354,5 @@ async def server_error_handler(request: Request, exc):
         return JSONResponse({"detail": "Internal server error"}, status_code=500)
     return templates.TemplateResponse(
         request,
-        "base.html", {"error": "Internal server error (500)"}, status_code=500
+        _BASE_TEMPLATE, {"error": "Internal server error (500)"}, status_code=500
     )

@@ -22,6 +22,7 @@ PROPS_PATH = os.environ.get("LOGGING_PROPERTIES_PATH", "logging.properties")
 # Marker attribute: identifies handlers managed by this module so they can be
 # cleanly removed on reload without disturbing any other handlers.
 _TW_HANDLER = "_tw_managed"
+_AUDIT_LOGGER_NAME = "tagwatcher.audit"
 
 DEFAULTS: dict[str, str] = {
     "log.dir": "logs",
@@ -157,7 +158,7 @@ def setup_file_logging(props: dict[str, str] | None = None) -> None:
         props = load_properties()
 
     # Always remove old managed handlers first so reload is clean
-    for name in ("app", "uvicorn.access", "tagwatcher.audit"):
+    for name in ("app", "uvicorn.access", _AUDIT_LOGGER_NAME):
         _remove_managed(logging.getLogger(name))
 
     log_dir = Path(props.get("log.dir", "logs"))
@@ -203,12 +204,12 @@ def setup_file_logging(props: dict[str, str] | None = None) -> None:
     _attach("uvicorn.access", "log.file.access", "log.level.access", access_fmt, propagate=False)
 
     # audit.log — structured audit trail; propagate=False (not in tagwatcher.log)
-    audit_log_obj = logging.getLogger("tagwatcher.audit")
+    audit_log_obj = logging.getLogger(_AUDIT_LOGGER_NAME)
     audit_log_obj.setLevel(logging.INFO)
-    _attach("tagwatcher.audit", "log.file.audit", "log.level.audit", audit_fmt, propagate=False)
+    _attach(_AUDIT_LOGGER_NAME, "log.file.audit", "log.level.audit", audit_fmt, propagate=False)
 
 
 # ---------------------------------------------------------------------------
 # Convenience reference used by audit_service
 # ---------------------------------------------------------------------------
-audit_logger = logging.getLogger("tagwatcher.audit")
+audit_logger = logging.getLogger(_AUDIT_LOGGER_NAME)

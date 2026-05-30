@@ -3,6 +3,9 @@ import ipaddress
 import time
 import logging
 from collections import defaultdict
+
+_ERR_URL_EMPTY = "URL must not be empty."
+_METADATA_HOST = "metadata.google.internal"
 from threading import Lock
 from urllib.parse import urlparse
 
@@ -39,12 +42,12 @@ def validate_docker_host_url(url: str) -> str | None:
     We only block the most dangerous targets: cloud metadata endpoints and localhost HTTP.
     """
     if not url:
-        return "URL must not be empty."
+        return _ERR_URL_EMPTY
     url_lower = url.lower().strip()
     # Block AWS/GCP metadata endpoint explicitly
     if "169.254.169.254" in url_lower:
         return "URL targets a reserved cloud metadata address."
-    if "metadata.google.internal" in url_lower:
+    if _METADATA_HOST in url_lower:
         return "URL targets a reserved cloud metadata address."
     # Disallow http/https schemes — Docker uses unix://, tcp://, or ssh://
     if url_lower.startswith("http://") or url_lower.startswith("https://"):
@@ -55,7 +58,7 @@ def validate_docker_host_url(url: str) -> str | None:
 def validate_webhook_url(url: str) -> str | None:
     """Return an error string if the URL is not safe for outbound webhook calls, else None."""
     if not url:
-        return "URL must not be empty."
+        return _ERR_URL_EMPTY
     try:
         parsed = urlparse(url)
     except Exception:
@@ -72,7 +75,7 @@ def validate_webhook_url(url: str) -> str | None:
         return "URL resolves to a private or reserved IP address."
 
     # Block obvious internal hostnames
-    if host in ("localhost", "metadata", "metadata.google.internal"):
+    if host in ("localhost", "metadata", _METADATA_HOST):
         return "URL points to an internal host."
 
     return None
@@ -81,7 +84,7 @@ def validate_webhook_url(url: str) -> str | None:
 def validate_oidc_url(url: str) -> str | None:
     """Return an error string if the OIDC provider URL is unsafe, else None."""
     if not url:
-        return "URL must not be empty."
+        return _ERR_URL_EMPTY
     try:
         parsed = urlparse(url)
     except Exception:
@@ -97,7 +100,7 @@ def validate_oidc_url(url: str) -> str | None:
     if _is_blocked_ip(host):
         return "OIDC provider URL resolves to a private or reserved IP address."
 
-    if host in ("localhost", "metadata", "metadata.google.internal"):
+    if host in ("localhost", "metadata", _METADATA_HOST):
         return "OIDC provider URL points to an internal host."
 
     return None

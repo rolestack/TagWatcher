@@ -1,5 +1,7 @@
 import uuid
 import logging
+
+_ERR_SPACE_NOT_FOUND = "Space not found"
 from fastapi import APIRouter, Depends, Request, HTTPException, status, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -76,7 +78,7 @@ async def edit_space_page(
     result = await db.execute(select(Space).where(Space.id == space_id))
     space = result.scalar_one_or_none()
     if not space:
-        raise HTTPException(status_code=404, detail="Space not found")
+        raise HTTPException(status_code=404, detail=_ERR_SPACE_NOT_FOUND)
     return templates.TemplateResponse(
         request,
         "spaces/edit.html",
@@ -97,7 +99,7 @@ async def update_space(
     result = await db.execute(select(Space).where(Space.id == space_id))
     space = result.scalar_one_or_none()
     if not space:
-        raise HTTPException(status_code=404, detail="Space not found")
+        raise HTTPException(status_code=404, detail=_ERR_SPACE_NOT_FOUND)
     space.name = name.strip()
     space.description = description.strip() or None
     space.icon = icon.strip() or None
@@ -139,7 +141,7 @@ async def delete_space(
     result = await db.execute(select(Space).where(Space.id == space_id))
     space = result.scalar_one_or_none()
     if not space:
-        raise HTTPException(status_code=404, detail="Space not found")
+        raise HTTPException(status_code=404, detail=_ERR_SPACE_NOT_FOUND)
     sname = space.name
     await db.delete(space)
     await db.commit()

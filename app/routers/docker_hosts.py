@@ -3,6 +3,8 @@ import uuid
 import secrets
 import logging
 from datetime import datetime, timedelta, timezone
+
+_ERR_HOST_NOT_FOUND = "Host not found"
 from typing import Optional
 from fastapi import APIRouter, Depends, Request, HTTPException, status, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -77,7 +79,7 @@ async def edit_host_page(
     )
     host = result.scalar_one_or_none()
     if not host:
-        raise HTTPException(status_code=404, detail="Host not found")
+        raise HTTPException(status_code=404, detail=_ERR_HOST_NOT_FOUND)
 
     from app.config import settings as _settings
     return templates.TemplateResponse(
@@ -102,7 +104,7 @@ async def host_detail(
     )
     host = result.scalar_one_or_none()
     if not host:
-        raise HTTPException(status_code=404, detail="Host not found")
+        raise HTTPException(status_code=404, detail=_ERR_HOST_NOT_FOUND)
 
     import fnmatch as _fnmatch
     active_containers = [c for c in host.tracked_containers if c.status != "removed"]
@@ -274,7 +276,7 @@ async def update_host(
     )
     host = result.scalar_one_or_none()
     if not host:
-        raise HTTPException(status_code=404, detail="Host not found")
+        raise HTTPException(status_code=404, detail=_ERR_HOST_NOT_FOUND)
 
     host.name = name.strip()
     if host.host_type != "agent":
@@ -328,7 +330,7 @@ async def remove_host(
     )
     host = result.scalar_one_or_none()
     if not host:
-        raise HTTPException(status_code=404, detail="Host not found")
+        raise HTTPException(status_code=404, detail=_ERR_HOST_NOT_FOUND)
 
     hname = host.name
     from app.services.scheduler import unregister_host_job as _unreg_job
@@ -359,7 +361,7 @@ async def sync_host(
     )
     host = result.scalar_one_or_none()
     if not host:
-        raise HTTPException(status_code=404, detail="Host not found")
+        raise HTTPException(status_code=404, detail=_ERR_HOST_NOT_FOUND)
 
     try:
         await docker_service.sync_containers(db, host)
@@ -407,7 +409,7 @@ async def check_host(
     )
     host = result.scalar_one_or_none()
     if not host:
-        raise HTTPException(status_code=404, detail="Host not found")
+        raise HTTPException(status_code=404, detail=_ERR_HOST_NOT_FOUND)
 
     try:
         await checker_service.check_host(db, host, force_notify=True, aggregate_notify=True)

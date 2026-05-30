@@ -2,6 +2,8 @@ import logging
 import os
 from typing import Optional
 
+_ACCOUNT_SAVED_URL = "/account?saved=1"
+
 from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
@@ -69,7 +71,7 @@ async def update_profile(
                  resource_id=user.id, resource_name=name,
                  details={"email": email}, request=request)
     logger.info(f"Profile updated for user {user.display_name}")
-    return RedirectResponse("/account?saved=1", status_code=303)
+    return RedirectResponse(_ACCOUNT_SAVED_URL, status_code=303)
 
 
 @router.post("/timezone")
@@ -88,7 +90,7 @@ async def update_timezone(
                  resource_id=user.id, resource_name=user.display_name,
                  details={"timezone": timezone}, request=request)
     logger.info(f"Timezone set to '{timezone}' for user {user.display_name}")
-    return RedirectResponse("/account?saved=1", status_code=303)
+    return RedirectResponse(_ACCOUNT_SAVED_URL, status_code=303)
 
 
 @router.post("/password")
@@ -122,4 +124,4 @@ async def change_password(
     await _audit(None, "account.change_password", user=user, resource_type="user",
                  resource_id=user.id, resource_name=user.display_name, request=request)
     logger.info(f"Password changed for user {user.display_name}")
-    return RedirectResponse("/account?saved=1", status_code=303)
+    return RedirectResponse(_ACCOUNT_SAVED_URL, status_code=303)

@@ -1,6 +1,8 @@
 import uuid
 import logging
 from typing import Optional, Annotated
+
+_LOGIN_URL = "/auth/login"
 from fastapi import Depends, Request, HTTPException, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,7 +50,7 @@ async def get_current_user(
     if not cookie_value:
         raise HTTPException(
             status_code=status.HTTP_302_FOUND,
-            headers={"Location": "/auth/login"},
+            headers={"Location": _LOGIN_URL},
         )
 
     max_age = await SettingsService.get_session_max_age(db)
@@ -56,7 +58,7 @@ async def get_current_user(
     if not session_data or "user_id" not in session_data:
         raise HTTPException(
             status_code=status.HTTP_302_FOUND,
-            headers={"Location": "/auth/login"},
+            headers={"Location": _LOGIN_URL},
         )
 
     user_id = session_data["user_id"]
@@ -65,7 +67,7 @@ async def get_current_user(
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_302_FOUND,
-            headers={"Location": "/auth/login"},
+            headers={"Location": _LOGIN_URL},
         )
 
     result = await db.execute(select(User).where(User.id == uid))
@@ -73,7 +75,7 @@ async def get_current_user(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_302_FOUND,
-            headers={"Location": "/auth/login"},
+            headers={"Location": _LOGIN_URL},
         )
 
     # Slide session expiry by re-signing with a fresh timestamp
@@ -117,24 +119,21 @@ async def get_space_access(
     if not space:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Space not found")
 
-    # Admins and Administrator group members have access to all spaces
-    if user.is_admin or any(g.name == "Administrator" for g in user.groups):
-        return space
+    # Admins and Administrator group members bypass group-level checks
+    if not (user.is_admin or any(g.name == "Administrator" for g in user.groups)):
+        user_group_ids = [g.id for g in user.groups]
+        if not user_group_ids:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to this space")
 
-    # Check if any of the user's groups has access to this space
-    user_group_ids = [g.id for g in user.groups]
-    if not user_group_ids:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to this space")
-
-    result = await db.execute(
-        select(group_spaces).where(
-            group_spaces.c.group_id.in_(user_group_ids),
-            group_spaces.c.space_id == space_id,
+        access = await db.execute(
+            select(group_spaces).where(
+                group_spaces.c.group_id.in_(user_group_ids),
+                group_spaces.c.space_id == space_id,
+            )
         )
-    )
-    access = result.first()
-    if not access:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to this space")
+        if not access.first():
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to this space")
+
     return space
 
 

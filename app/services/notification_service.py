@@ -2,6 +2,9 @@ import logging
 from typing import Optional, Any
 from datetime import datetime
 
+_TEAMS_MSG_CARD_TYPE = "@type"
+_VIEW_IN_TAGWATCHER = "View in TagWatcher"
+
 import httpx
 from fastapi import HTTPException
 
@@ -65,27 +68,30 @@ class NotificationService:
             "check_time": check_time_str,
         }
 
+    async def _dispatch(self, channel: NotificationChannel, content: dict, aggregated: bool = False) -> None:
+        """Dispatch a notification to the appropriate channel handler."""
+        handlers = {
+            ChannelType.slack:      (self._send_aggregated_slack,      self.send_slack),
+            ChannelType.discord:    (self._send_aggregated_discord,    self.send_discord),
+            ChannelType.telegram:   (self._send_aggregated_telegram,   self.send_telegram),
+            ChannelType.zulip:      (self._send_aggregated_zulip,      self.send_zulip),
+            ChannelType.mattermost: (self._send_aggregated_mattermost, self.send_mattermost),
+            ChannelType.teams:      (self._send_aggregated_teams,      self.send_teams),
+        }
+        pair = handlers.get(channel.channel_type)
+        if not pair:
+            logger.warning(f"Unknown channel type: {channel.channel_type}")
+            return
+        handler = pair[0] if aggregated else pair[1]
+        await handler(channel.config, content)
+
     async def send_update_notification(
         self, channel: NotificationChannel, container: TrackedContainer, app_url: str,
         host_name: str = "", space_name: str = "", check_time: Optional[datetime] = None,
     ):
         content = self._build_notification_content(container, app_url, host_name, space_name, check_time)
-
         try:
-            if channel.channel_type == ChannelType.slack:
-                await self.send_slack(channel.config, content)
-            elif channel.channel_type == ChannelType.discord:
-                await self.send_discord(channel.config, content)
-            elif channel.channel_type == ChannelType.telegram:
-                await self.send_telegram(channel.config, content)
-            elif channel.channel_type == ChannelType.zulip:
-                await self.send_zulip(channel.config, content)
-            elif channel.channel_type == ChannelType.mattermost:
-                await self.send_mattermost(channel.config, content)
-            elif channel.channel_type == ChannelType.teams:
-                await self.send_teams(channel.config, content)
-            else:
-                logger.warning(f"Unknown channel type: {channel.channel_type}")
+            await self._dispatch(channel, content, aggregated=False)
         except Exception as e:
             logger.error(f"Failed to send notification via {channel.channel_type}: {e}")
             raise
@@ -137,18 +143,7 @@ class NotificationService:
         """Send one combined notification for multiple updated containers."""
         content = self._build_aggregated_content(containers, app_url, host_name, space_name, check_time)
         try:
-            if channel.channel_type == ChannelType.slack:
-                await self._send_aggregated_slack(channel.config, content)
-            elif channel.channel_type == ChannelType.discord:
-                await self._send_aggregated_discord(channel.config, content)
-            elif channel.channel_type == ChannelType.telegram:
-                await self._send_aggregated_telegram(channel.config, content)
-            elif channel.channel_type == ChannelType.zulip:
-                await self._send_aggregated_zulip(channel.config, content)
-            elif channel.channel_type == ChannelType.mattermost:
-                await self._send_aggregated_mattermost(channel.config, content)
-            elif channel.channel_type == ChannelType.teams:
-                await self._send_aggregated_teams(channel.config, content)
+            await self._dispatch(channel, content, aggregated=True)
         except Exception as e:
             logger.error(f"Aggregated notification failed via {channel.channel_type}: {e}")
             raise
@@ -292,13 +287,13 @@ class NotificationService:
             for l in content["lines"]
         ]
         payload = {
-            "@type": "MessageCard",
+            _TEAMS_MSG_CARD_TYPE: "MessageCard",
             "@context": "https://schema.org/extensions",
             "themeColor": "F59E0B",
             "summary": content["title"],
             "sections": [{"activityTitle": content["title"], "facts": facts}],
             "potentialAction": [
-                {"@type": "OpenUri", "name": "View in TagWatcher",
+                {_TEAMS_MSG_CARD_TYPE: "OpenUri", "name": _VIEW_IN_TAGWATCHER,
                  "targets": [{"os": "default", "uri": content["lines"][0]["url"]}]}
             ] if content["lines"] else [],
         }
@@ -321,18 +316,7 @@ class NotificationService:
             "check_time": "",
         }
 
-        if channel.channel_type == ChannelType.slack:
-            await self.send_slack(channel.config, content)
-        elif channel.channel_type == ChannelType.discord:
-            await self.send_discord(channel.config, content)
-        elif channel.channel_type == ChannelType.telegram:
-            await self.send_telegram(channel.config, content)
-        elif channel.channel_type == ChannelType.zulip:
-            await self.send_zulip(channel.config, content)
-        elif channel.channel_type == ChannelType.mattermost:
-            await self.send_mattermost(channel.config, content)
-        elif channel.channel_type == ChannelType.teams:
-            await self.send_teams(channel.config, content)
+        await self._dispatch(channel, content, aggregated=False)
 
     async def send_slack(self, config: dict, content: dict):
         """Send a Slack Block Kit message with action button."""
@@ -373,7 +357,7 @@ class NotificationService:
             "elements": [
                 {
                     "type": "button",
-                    "text": {"type": "plain_text", "text": "View in TagWatcher"},
+                    "text": {"type": "plain_text", "text": _VIEW_IN_TAGWATCHER},
                     "url": content["container_url"],
                     "style": "primary",
                 }
@@ -430,7 +414,7 @@ class NotificationService:
                         {
                             "type": 2,
                             "style": 5,  # LINK style
-                            "label": "View in TagWatcher",
+                            "label": _VIEW_IN_TAGWATCHER,
                             "url": content["container_url"],
                         }
                     ],
@@ -468,7 +452,7 @@ class NotificationService:
             "parse_mode": "Markdown",
             "reply_markup": {
                 "inline_keyboard": [
-                    [{"text": "View in TagWatcher", "url": content["container_url"]}]
+                    [{"text": _VIEW_IN_TAGWATCHER, "url": content["container_url"]}]
                 ]
             },
         }
@@ -587,7 +571,7 @@ class NotificationService:
             facts.append({"name": "Release Date", "value": content["release_date"]})
 
         payload = {
-            "@type": "MessageCard",
+            _TEAMS_MSG_CARD_TYPE: "MessageCard",
             "@context": "https://schema.org/extensions",
             "themeColor": "F59E0B",
             "summary": content["title"],
@@ -600,8 +584,8 @@ class NotificationService:
             ],
             "potentialAction": [
                 {
-                    "@type": "OpenUri",
-                    "name": "View in TagWatcher",
+                    _TEAMS_MSG_CARD_TYPE: "OpenUri",
+                    "name": _VIEW_IN_TAGWATCHER,
                     "targets": [{"os": "default", "uri": content["container_url"]}],
                 }
             ],
