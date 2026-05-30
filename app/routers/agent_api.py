@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Header, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 
 from app.deps import DB
@@ -25,11 +25,23 @@ _BEARER_PREFIX = "Bearer "
 
 
 def _get_client_ip(request: Request) -> str:
-    """Return the real client IP, respecting X-Forwarded-For if present."""
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "0.0.0.0"
+    """Return the real client IP.
+    X-Forwarded-For is only trusted when the direct peer is a loopback/private address
+    (i.e. the request is coming through a local reverse proxy). Otherwise the direct
+    peer IP is used so agents cannot spoof their source address to bypass CIDR ACLs.
+    """
+    direct_ip = request.client.host if request.client else "0.0.0.0"
+    try:
+        peer = ipaddress.ip_address(direct_ip)
+        if peer.is_loopback or peer.is_private:
+            forwarded = request.headers.get("X-Forwarded-For")
+            if forwarded:
+                candidate = forwarded.split(",")[0].strip()
+                ipaddress.ip_address(candidate)  # validate before trusting
+                return candidate
+    except ValueError:
+        pass
+    return direct_ip
 
 
 def _is_ip_allowed(ip_str: str, allowed_cidrs: str | None) -> bool:
@@ -83,6 +95,13 @@ class SyncRequest(BaseModel):
     hostname: str = ""
     agent_version: str = ""
     update_results: list[UpdateResult] = []
+
+    @field_validator("hostname")
+    @classmethod
+    def _validate_hostname(cls, v: str) -> str:
+        if len(v) > 253:
+            raise ValueError("hostname too long")
+        return v
 
 
 # Pending container updates per host, keyed by str(host.id).

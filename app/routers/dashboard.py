@@ -1,5 +1,7 @@
 import logging
+import os
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select, func
@@ -20,14 +22,19 @@ from app.templates_setup import templates
 
 
 def _period_start(period: str) -> datetime:
-    now = datetime.now(timezone.utc)
+    try:
+        tz = ZoneInfo(os.environ.get("TZ", "UTC"))
+    except ZoneInfoNotFoundError:
+        tz = ZoneInfo("UTC")
+    now_local = datetime.now(tz)
     if period == "week":
-        return (now - timedelta(days=now.weekday())).replace(
+        week_start = (now_local - timedelta(days=now_local.weekday())).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
+        return week_start.astimezone(timezone.utc)
     if period == "month":
-        return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    return now.replace(hour=0, minute=0, second=0, microsecond=0)
+        return now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
+    return now_local.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
 
 
 @router.get("/", response_class=HTMLResponse)

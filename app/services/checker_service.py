@@ -224,6 +224,12 @@ class CheckerService:
             and (not had_update_before or tag_changed or digest_changed or snooze_expired or force_notify or not_acked)
             and not is_snoozed
         )
+        logger.debug(
+            f"[{container.name}] has_update={has_update} had_before={had_update_before} "
+            f"tag_changed={tag_changed} digest_changed={digest_changed} "
+            f"snooze_expired={snooze_expired} not_acked={not_acked} is_snoozed={is_snoozed} "
+            f"→ should_notify={should_notify}"
+        )
 
         if should_notify and not skip_notify:
             try:

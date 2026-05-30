@@ -425,6 +425,16 @@ async def acknowledge_notification(
         raise HTTPException(status_code=404, detail="Notification not found")
 
     now = datetime.now(timezone.utc)
+
+    # Ack all sent notifications for this container, not just the one clicked.
+    await db.execute(
+        _sqlupdate(NotificationLog)
+        .where(
+            NotificationLog.container_id == container_id,
+            NotificationLog.status == "sent",
+        )
+        .values(status="ack", status_changed_at=now)
+    )
     log.status = "ack"
     log.status_changed_at = now
 
@@ -433,6 +443,11 @@ async def acknowledge_notification(
     snoozed_until = container.snoozed_until
 
     await db.commit()
+    from app.services.audit_service import audit as _audit
+    await _audit(None, "container.notification_ack", user=user, resource_type="container",
+                 resource_id=container.id, resource_name=container.name,
+                 details={"snoozed_hours": snooze_hours,
+                          "image": f"{container.image}:{container.tag}"}, request=request)
     return {
         "status": "ack",
         "status_changed_at": now.isoformat(),
