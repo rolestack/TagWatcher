@@ -1,9 +1,24 @@
 import logging
+import os
 from typing import Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 _TEAMS_MSG_CARD_TYPE = "@type"
 _VIEW_IN_TAGWATCHER = "View in TagWatcher"
+
+def _format_time(dt: datetime) -> str:
+    """Format a UTC datetime in the system timezone (TZ env var)."""
+    if dt is None:
+        return ""
+    try:
+        tz = ZoneInfo(os.environ.get("TZ", "UTC"))
+    except ZoneInfoNotFoundError:
+        tz = ZoneInfo("UTC")
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    local = dt.astimezone(tz)
+    return local.strftime(f"%Y-%m-%d %H:%M {local.strftime('%Z')}")
 
 import httpx
 from fastapi import HTTPException
@@ -46,7 +61,7 @@ class NotificationService:
             except Exception:
                 release_date = str(container.release_date)
 
-        check_time_str = check_time.strftime("%Y-%m-%d %H:%M UTC") if check_time else ""
+        check_time_str = _format_time(check_time) if check_time else ""
 
         return {
             "container_name": container.name,
@@ -124,7 +139,7 @@ class NotificationService:
             for l in lines
         )
 
-        check_time_str = check_time.strftime("%Y-%m-%d %H:%M UTC") if check_time else ""
+        check_time_str = _format_time(check_time) if check_time else ""
 
         return {
             "title": title,

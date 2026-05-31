@@ -31,10 +31,10 @@ def _period_start(period: str) -> datetime:
         week_start = (now_local - timedelta(days=now_local.weekday())).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
-        return week_start.astimezone(timezone.utc)
+        return week_start.astimezone(timezone.utc).replace(tzinfo=None)
     if period == "month":
-        return now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
-    return now_local.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
+        return now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).replace(tzinfo=None)
+    return now_local.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).replace(tzinfo=None)
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -51,13 +51,16 @@ async def dashboard(
 
     # Get spaces accessible by the user
     if user.is_admin:
-        result = await db.execute(select(Space))
+        result = await db.execute(
+            select(Space).options(selectinload(Space.docker_hosts))
+        )
         accessible_spaces = result.scalars().all()
     else:
         user_group_ids = [g.id for g in user.groups]
         if user_group_ids:
             result = await db.execute(
                 select(Space)
+                .options(selectinload(Space.docker_hosts))
                 .join(group_spaces, group_spaces.c.space_id == Space.id)
                 .where(group_spaces.c.group_id.in_(user_group_ids))
                 .distinct()
