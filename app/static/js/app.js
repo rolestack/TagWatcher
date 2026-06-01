@@ -396,15 +396,16 @@ function containerUpdater(containerId) {
         updating: false,
 
         async _pollUntilApplied() {
-            // Poll /status every 15s until has_update clears (agent applied the update).
-            // Gives up after 40 attempts (~10 minutes).
-            for (let i = 0; i < 40; i++) {
-                await new Promise(r => setTimeout(r, 15000));
+            // Poll /status every 3s until container is running and update is applied.
+            // Gives up after 600 attempts (30 minutes).
+            for (let i = 0; i < 600; i++) {
+                await new Promise(r => setTimeout(r, 3000));
                 try {
                     const resp = await fetch(`/containers/${containerId}/status`);
                     if (!resp.ok) continue;
                     const d = await resp.json();
-                    if (!d.has_update) {
+                    // Check both: update applied (has_update cleared) AND container is running
+                    if (!d.has_update && d.status === 'running') {
                         window.dispatchEvent(new CustomEvent('tw:check-result', {
                             detail: { has_update: false, latest_tag: d.latest_tag }
                         }));
@@ -413,6 +414,8 @@ function containerUpdater(containerId) {
                     }
                 } catch (_) { /* network blip — keep polling */ }
             }
+            // Timeout after 30 minutes
+            twShowToast('Update timeout: container did not start within 30 minutes', 'error', 6000);
         },
 
         async applyUpdate() {
