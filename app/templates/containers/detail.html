@@ -253,9 +253,10 @@
         <div class="p-6">
             {% set logs = container.notification_logs | sort(attribute='sent_at', reverse=True) %}
             {% if logs %}
-            <div class="space-y-2">
-                {% for log in logs[:10] %}
+            <div class="space-y-2 max-h-96 overflow-y-auto pr-2">
+                {% for log in logs %}
                 <div x-data="logAcknowledger('{{ container.id }}', '{{ log.id }}', '{{ log.status }}', '{{ log.status_changed_at | localtime(user) if log.status_changed_at else '' }}')"
+                     @log-acked.window="if ($event.detail.containerId === '{{ container.id }}' && status === 'sent') { status = 'ack'; changedAt = $event.detail.changedAt; }"
                      class="flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm py-2 border-b border-gray-50 last:border-0 gap-1.5">
                     <div class="flex items-center gap-2 min-w-0">
                         {% if log.channel %}

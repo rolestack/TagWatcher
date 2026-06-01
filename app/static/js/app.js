@@ -700,7 +700,12 @@ function logAcknowledger(containerId, logId, initialStatus, initialChangedAt) {
                     const data = await resp.json();
                     this.status = 'ack';
                     this.changedAt = data.status_changed_at_display || '';
-                    this.$dispatch('log-acked', { snoozeUntil: data.snooze_until_display });
+                    // Dispatch event with containerId and changedAt so all notifications for this container update
+                    this.$dispatch('log-acked', {
+                        containerId: containerId,
+                        changedAt: data.status_changed_at_display || '',
+                        snoozeUntil: data.snooze_until_display
+                    });
                 } else {
                     alert('Acknowledge failed. Please try again.');
                 }
