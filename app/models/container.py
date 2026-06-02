@@ -17,6 +17,7 @@ class TrackedContainer(Base):
     # Docker's own container ID (short or full)
     container_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(256), nullable=False)
+    namespace: Mapped[str | None] = mapped_column(String(256), nullable=True)
     # Full image reference, e.g. "nginx:latest" or "ghcr.io/owner/repo:v1.2.3"
     image: Mapped[str] = mapped_column(String(512), nullable=False)
     tag: Mapped[str] = mapped_column(String(256), nullable=False, default="latest")

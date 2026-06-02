@@ -172,6 +172,8 @@ async def run_migrations() -> None:
             "ALTER TABLE docker_hosts ADD COLUMN IF NOT EXISTS agent_allowed_cidrs TEXT",
             "ALTER TABLE docker_hosts ADD COLUMN IF NOT EXISTS runtime_type VARCHAR(32)",
             "ALTER TABLE docker_hosts ADD COLUMN IF NOT EXISTS runtime_metadata TEXT",
+            "ALTER TABLE docker_hosts ADD COLUMN IF NOT EXISTS agent_sync_interval INTEGER",
+            "ALTER TABLE tracked_containers ADD COLUMN IF NOT EXISTS namespace VARCHAR(256)",
             "UPDATE docker_hosts SET host_type = 'unix' WHERE host_url LIKE 'unix://%' AND host_type = 'tcp'",
         ]:
             await conn.execute(text(stmt))

@@ -31,10 +31,10 @@
     </div>
     {% endif %}
 
-    <!-- Apply Update (only when tag == latest_tag, i.e. same tag with new digest; not for version upgrades) -->
-    {% if container.has_update and container.tag == container.latest_tag %}
-    <div x-data="containerUpdater('{{ container.id }}')"
-         @tw:check-result.window="if (!$event.detail.has_update || $event.detail.latest_tag !== '{{ container.tag }}') $el.style.display='none'">
+    <!-- Apply / Rolling Update — reactive: appears on check-result without reload -->
+    <div x-data="containerUpdater('{{ container.id }}', {{ 'true' if container.has_update else 'false' }}, '{{ container.tag }}', '{{ container.latest_tag or '' }}', {{ 'true' if is_k8s else 'false' }}, {{ 'true' if k8s_updatable else 'false' }})"
+         x-show="showApply" x-cloak
+         @tw:check-result.window="onCheckResult($event.detail)">
         <!-- Idle -->
         <button x-show="!confirming && !updating" @click="confirming = true"
                 class="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors">
@@ -42,11 +42,11 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
             </svg>
-            <span class="hidden sm:inline">Apply Update</span>
+            <span class="hidden sm:inline" x-text="buttonLabel"></span>
         </button>
         <!-- Confirming -->
         <div x-show="confirming" x-cloak class="flex items-center gap-1.5">
-            <span class="hidden sm:inline text-xs text-gray-600 whitespace-nowrap">Pull &amp; recreate?</span>
+            <span class="hidden sm:inline text-xs text-gray-600 whitespace-nowrap" x-text="confirmText"></span>
             <button @click="applyUpdate()"
                     class="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors">
                 Confirm
@@ -65,7 +65,6 @@
             <span class="hidden sm:inline text-sm text-amber-600 font-medium">Updating...</span>
         </div>
     </div>
-    {% endif %}
 
     <!-- Check Updates (matches host detail page style) -->
     <div x-data="containerChecker('{{ container.id }}')">

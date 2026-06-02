@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import String, Boolean, DateTime, Text, Integer, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
@@ -34,7 +34,11 @@ class DockerHost(Base):
     version_pattern: Mapped[str | None] = mapped_column(String(200), nullable=True)
     exclude_patterns: Mapped[str | None] = mapped_column(Text, nullable=True)
     notification_snooze_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=24)
+    # Runtime metadata (auto-detected by agent: "docker" or "kubernetes")
+    runtime_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    runtime_metadata: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    agent_sync_interval: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_sync_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_update_check_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
@@ -50,6 +54,18 @@ class DockerHost(Base):
         lazy="selectin",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def is_agent_online(self) -> bool:
+        """True if the agent has synced within 3× its reported sync interval (default 5 min)."""
+        if not self.last_synced_at:
+            return False
+        interval = self.agent_sync_interval or 60
+        threshold = datetime.now(timezone.utc) - timedelta(seconds=interval * 3)
+        synced_at = self.last_synced_at
+        if synced_at.tzinfo is None:
+            synced_at = synced_at.replace(tzinfo=timezone.utc)
+        return synced_at >= threshold
 
     def __repr__(self) -> str:
         return f"<DockerHost id={self.id} name={self.name} url={self.host_url}>"

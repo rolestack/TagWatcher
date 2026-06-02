@@ -46,11 +46,17 @@ class RegistryService:
         "nginx"                          → ("", "library", "nginx")
         "myuser/myapp"                   → ("", "myuser/myapp", "myapp")
         "ghcr.io/owner/repo"             → ("https://ghcr.io/v2", "owner/repo", "repo")
+        "docker.io/library/postgres"     → ("", "library", "postgres")  [Docker Hub]
+        "docker.io/myuser/myapp"         → ("", "myuser/myapp", "myapp")  [Docker Hub]
         """
         parts = image.split("/")
         if len(parts) >= 2 and ("." in parts[0] or ":" in parts[0] or parts[0] == "localhost"):
             registry_host = parts[0]
             rest = "/".join(parts[1:])
+            # docker.io is Docker Hub — treat the same as unqualified images
+            if registry_host == "docker.io":
+                rest_parts = rest.split("/")
+                return "", rest, rest_parts[-1]
             return f"https://{registry_host}/v2", rest, parts[-1]
         elif len(parts) == 1:
             return "", "library", parts[0]

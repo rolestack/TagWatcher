@@ -107,6 +107,16 @@ async def container_detail(
 ):
     container, host = await _get_container_with_access(container_id, user, db)
 
+    # Kubernetes: derive workload kind from container_id ({ns}_{Kind}_{workload}_{container}).
+    # Deployment/StatefulSet/DaemonSet roll via the controller; a bare Pod is updated
+    # in place by patching its image. Job/CronJob can't be rolled.
+    is_k8s = host.runtime_type == "kubernetes"
+    k8s_updatable = True
+    if is_k8s:
+        parts = container.container_id.split("_")
+        kind = parts[1] if len(parts) >= 4 else ""
+        k8s_updatable = kind in ("Deployment", "StatefulSet", "DaemonSet", "Pod")
+
     return templates.TemplateResponse(
         request,
         "containers/detail.html",
@@ -114,6 +124,8 @@ async def container_detail(
             "user": user,
             "container": container,
             "host": host,
+            "is_k8s": is_k8s,
+            "k8s_updatable": k8s_updatable,
             "app_url": settings.APP_URL,
             "now": datetime.now(timezone.utc),
         },

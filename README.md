@@ -1,18 +1,19 @@
 # TagWatcher
 
-A self-hosted web application that monitors Docker container images for updates and sends notifications when a new version is available.
+A self-hosted web application that monitors **Docker and Kubernetes** container images for updates and sends notifications when a new version is available.
 
-Register your Docker hosts, and TagWatcher will periodically compare running container image tags and digests against the registry — notifying you via Slack, Discord, Telegram, and more.
+Register your hosts, and TagWatcher will periodically compare running container image tags and digests against the registry — notifying you via Slack, Discord, Telegram, and more.
 
 ## Features
 
-- **Multi-host** — Monitor multiple Docker hosts via Unix socket or Agent (push-based)
-- **Agent support** — Deploy a lightweight agent on remote hosts that cannot be accessed directly
+- **Docker & Kubernetes** — One agent monitors both; it auto-detects the runtime
+- **Multi-host** — Monitor multiple hosts via local Unix socket or Agent (push-based)
+- **Agent support** — Deploy a lightweight agent on remote hosts / clusters that cannot be accessed directly
 - **Multi-tenancy** — Isolate hosts, channels, and users with Spaces and Groups
 - **Flexible scheduling** — Check on a fixed interval or at specific times of day
 - **Version strategies** — Control update scope: Auto / Major / Minor / Patch / Custom glob
 - **Notification channels** — Slack · Discord · Telegram · Mattermost · Zulip · Microsoft Teams
-- **Apply Update** — Pull and recreate containers (or queue via agent) directly from the UI
+- **Apply / Rolling Update** — Recreate Docker containers or roll Kubernetes workloads directly from the UI
 - **Live logs** — Stream container logs in real time over WebSocket
 - **ACK & Snooze** — Acknowledge notifications and suppress re-alerts for a configurable period
 - **OIDC / SSO** — OpenID Connect support (Keycloak, Authentik, Google, etc.)
@@ -58,12 +59,12 @@ Open `http://your-server-ip:8000` in your browser and follow the wizard to confi
 
 ## Host Types
 
-TagWatcher supports three ways to connect to a Docker host:
+TagWatcher connects to hosts in two ways:
 
 | Type | Description |
 |------|-------------|
-| **Unix socket** | Local Docker socket (`unix:///var/run/docker.sock`). Mount the socket into the TagWatcher container. |
-| **Agent** | Deploy [TagWatcher-Agent](https://github.com/rolestack/TagWatcher-Agent) on the remote host. The agent pushes container data to TagWatcher — no inbound port needed. |
+| **Unix socket** | Local Docker socket (`unix:///var/run/docker.sock`). Mount the socket into the TagWatcher container. Docker only. |
+| **Agent** | Deploy [TagWatcher-Agent](https://github.com/rolestack/TagWatcher-Agent) on a remote Docker host **or Kubernetes cluster**. The agent auto-detects the runtime and pushes container data to TagWatcher — no inbound port needed. |
 
 > **Unix socket:** Set `DOCKER_GID` to match the socket GID:
 > ```bash
@@ -72,12 +73,16 @@ TagWatcher supports three ways to connect to a Docker host:
 
 ### Agent Host Setup
 
-For remote hosts where you cannot expose the Docker TCP port:
+For remote Docker hosts or Kubernetes clusters that cannot be accessed directly:
 
 1. In the TagWatcher UI, go to a Space → **Hosts** → **Add Host** → select type **Agent**.
 2. Copy the generated **Registration Token**.
-3. Deploy [TagWatcher-Agent](https://github.com/rolestack/TagWatcher-Agent) on the remote host with `REGISTRATION_TOKEN` set.
+3. Deploy [TagWatcher-Agent](https://github.com/rolestack/TagWatcher-Agent) with that token:
+   - **Docker:** `docker compose up -d` with `REGISTRATION_TOKEN` set in `.env`
+   - **Kubernetes:** install the Helm chart with `secret.registrationToken` set
 4. The agent registers automatically on first startup and begins pushing container data.
+
+The agent handles both runtimes — see the [TagWatcher-Agent README](https://github.com/rolestack/TagWatcher-Agent) for Docker and Kubernetes (Helm) setup.
 
 ---
 

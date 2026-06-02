@@ -63,8 +63,12 @@ class NotificationService:
 
         check_time_str = _format_time(check_time) if check_time else ""
 
+        # Namespace is only set for Kubernetes containers.
+        namespace = container.namespace or ""
+
         return {
             "container_name": container.name,
+            "namespace": namespace,
             "image": container.image,
             "current_version": current,
             "new_version": new_version,
@@ -74,8 +78,9 @@ class NotificationService:
             "summary": (
                 f"Container **{container.name}** ({container.image}) "
                 f"has an update available.\n"
-                f"Current: `{current}`\n"
-                f"Latest: `{new_version}`"
+                + (f"Namespace: `{namespace}`\n" if namespace else "")
+                + f"Current: `{current}`\n"
+                + f"Latest: `{new_version}`"
                 + (f"\nReleased: {release_date}" if release_date else "")
             ),
             "host_name": host_name,
@@ -351,15 +356,16 @@ class NotificationService:
         ctx = self._context_lines(content)
         if ctx:
             blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": ctx}]})
-        blocks.append({
-            "type": "section",
-            "fields": [
-                {"type": "mrkdwn", "text": f"*Container:*\n{content['container_name']}"},
-                {"type": "mrkdwn", "text": f"*Image:*\n{content['image']}"},
-                {"type": "mrkdwn", "text": f"*Current Version:*\n`{content['current_version']}`"},
-                {"type": "mrkdwn", "text": f"*New Version:*\n`{content['new_version']}`"},
-            ],
-        })
+        fields = []
+        if content.get("namespace"):
+            fields.append({"type": "mrkdwn", "text": f"*Namespace:*\n{content['namespace']}"})
+        fields += [
+            {"type": "mrkdwn", "text": f"*Container:*\n{content['container_name']}"},
+            {"type": "mrkdwn", "text": f"*Image:*\n{content['image']}"},
+            {"type": "mrkdwn", "text": f"*Current Version:*\n`{content['current_version']}`"},
+            {"type": "mrkdwn", "text": f"*New Version:*\n`{content['new_version']}`"},
+        ]
+        blocks.append({"type": "section", "fields": fields})
 
         if content.get("release_date"):
             blocks.append({
@@ -401,10 +407,14 @@ class NotificationService:
         if content.get("check_time"):
             ctx_fields.append({"name": "시간", "value": content["check_time"], "inline": True})
 
+        ns_fields = []
+        if content.get("namespace"):
+            ns_fields.append({"name": "Namespace", "value": content["namespace"], "inline": True})
+
         embed = {
             "title": content["title"],
             "color": 0xF59E0B,  # amber
-            "fields": ctx_fields + [
+            "fields": ctx_fields + ns_fields + [
                 {"name": "Container", "value": content["container_name"], "inline": True},
                 {"name": "Image", "value": content["image"], "inline": True},
                 {"name": "Current Version", "value": f"`{content['current_version']}`", "inline": False},
@@ -452,6 +462,8 @@ class NotificationService:
         text = f"*{content['title']}*\n\n"
         if ctx:
             text += ctx + "\n\n"
+        if content.get("namespace"):
+            text += f"Namespace: `{content['namespace']}`\n"
         text += (
             f"Container: `{content['container_name']}`\n"
             f"Image: `{content['image']}`\n"
@@ -495,6 +507,8 @@ class NotificationService:
         message = f"**{content['title']}**\n\n"
         if ctx:
             message += ctx + "\n\n"
+        if content.get("namespace"):
+            message += f"- Namespace: `{content['namespace']}`\n"
         message += (
             f"- Container: `{content['container_name']}`\n"
             f"- Image: `{content['image']}`\n"

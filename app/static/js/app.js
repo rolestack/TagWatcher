@@ -390,10 +390,37 @@ function userAdmin() {
 
 // ─── Container Image Update (pull & recreate) ────────────────────────────────
 
-function containerUpdater(containerId) {
+function containerUpdater(containerId, hasUpdate, currentTag, latestTag, isK8s, k8sUpdatable) {
     return {
         confirming: false,
         updating: false,
+        hasUpdate: hasUpdate,
+        currentTag: currentTag,
+        latestTag: latestTag,
+        isK8s: isK8s,
+        k8sUpdatable: k8sUpdatable,
+
+        // Show only for same-tag-new-digest (not version upgrades); hide for
+        // Kubernetes workloads that can't be rolled (Job/CronJob/bare-unmanaged).
+        get showApply() {
+            if (!this.hasUpdate) return false;
+            if (this.latestTag !== this.currentTag) return false;
+            if (this.isK8s && !this.k8sUpdatable) return false;
+            return true;
+        },
+
+        get buttonLabel() {
+            return this.isK8s ? 'Rolling Update' : 'Apply Update';
+        },
+
+        get confirmText() {
+            return this.isK8s ? 'Rolling update?' : 'Pull & recreate?';
+        },
+
+        onCheckResult(detail) {
+            this.hasUpdate = detail.has_update;
+            if (detail.latest_tag) this.latestTag = detail.latest_tag;
+        },
 
         async _pollUntilApplied() {
             // Poll /status every 3s until container is running and update is applied.
@@ -426,10 +453,11 @@ function containerUpdater(containerId) {
                 if (resp.ok) {
                     const data = await resp.json();
                     if (data.status === 'queued') {
-                        // Agent update — don't redirect; poll status until the agent applies it.
-                        twShowToast('Update queued. The agent will apply it on the next sync cycle.', 'info', 6000);
+                        // Agent update — keep "Updating..." shown and wait until the
+                        // agent actually applies it (poll /status), like Docker does.
+                        twShowToast('Update queued. Applying on the next sync cycle...', 'info', 4000);
+                        await this._pollUntilApplied();
                         this.updating = false;
-                        this._pollUntilApplied();
                     } else {
                         // Direct Docker update — redirect to logs tab.
                         const url = new URL(window.location.href);

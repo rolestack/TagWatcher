@@ -77,6 +77,7 @@ class RegisterResponse(BaseModel):
 class ContainerSyncItem(BaseModel):
     container_id: str
     name: str
+    namespace: str = ""
     image: str
     tag: str
     status: str
@@ -94,6 +95,9 @@ class SyncRequest(BaseModel):
     containers: list[ContainerSyncItem]
     hostname: str = ""
     agent_version: str = ""
+    runtime_type: str = ""  # "docker" or "kubernetes"
+    runtime_metadata: Optional[str] = None
+    sync_interval_seconds: int = 0
     update_results: list[UpdateResult] = []
 
     @field_validator("hostname")
@@ -143,11 +147,7 @@ async def register_agent(body: RegisterRequest, request: Request, db: DB):
     if not host:
         raise HTTPException(
             status_code=404,
-            detail=(
-                "Registration token not found or already used. "
-                "Tokens are single-use — generate a new one in TagWatcher and update REGISTRATION_TOKEN. "
-                "Tip: mount /data as a persistent volume so the agent secret survives restarts."
-            ),
+            detail="Registration token not found. Generate a new one in TagWatcher.",
         )
 
     now = datetime.now(timezone.utc)
@@ -159,10 +159,14 @@ async def register_agent(body: RegisterRequest, request: Request, db: DB):
         logger.warning(f"Agent registration blocked: IP {client_ip} not in allow list for host '{host.name}'")
         raise HTTPException(status_code=403, detail=f"IP address {client_ip} is not in the allowed list.")
 
+    # If the host already has an agent_secret (re-registration after pod restart),
+    # return the existing one so the agent resumes without losing state.
+    if host.agent_secret:
+        logger.info(f"Agent re-registered for host '{host.name}' — returning existing secret")
+        return RegisterResponse(agent_secret=host.agent_secret)
+
     agent_secret = secrets.token_urlsafe(32)
     host.agent_secret = agent_secret
-    host.agent_registration_token = None
-    host.agent_registration_token_expires_at = None
     host.last_sync_error = None
     await db.commit()
 
@@ -198,6 +202,7 @@ async def sync_agent(
         {
             "container_id": c.container_id,
             "name": c.name,
+            "namespace": c.namespace,
             "image": f"{c.image}:{c.tag}",
             "status": c.status,
             "digest": c.digest,
@@ -208,8 +213,21 @@ async def sync_agent(
     from app.services.docker_service import DockerService
     await DockerService.apply_sync_data(db, host, containers)
 
+    # Update host metadata
+    updated = False
     if body.hostname and host.host_url != body.hostname:
         host.host_url = body.hostname
+        updated = True
+    if body.runtime_type and host.runtime_type != body.runtime_type:
+        host.runtime_type = body.runtime_type
+        updated = True
+    if body.runtime_metadata and host.runtime_metadata != body.runtime_metadata:
+        host.runtime_metadata = body.runtime_metadata
+        updated = True
+    if body.sync_interval_seconds and host.agent_sync_interval != body.sync_interval_seconds:
+        host.agent_sync_interval = body.sync_interval_seconds
+        updated = True
+    if updated:
         await db.commit()
 
     for r in body.update_results:

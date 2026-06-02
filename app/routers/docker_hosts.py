@@ -178,20 +178,14 @@ async def add_host(
 ):
     space = await get_space_access(space_id, user, db)
 
-    if host_type not in ("tcp", "unix", "agent"):
-        host_type = "tcp"
+    # Only agent type is supported
+    if host_type != "agent":
+        raise HTTPException(status_code=400, detail="Only 'agent' type is supported. Use TagWatcher Agent for both local and remote hosts.")
 
-    reg_token: str | None = None
-    reg_expires: datetime | None = None
-
-    if host_type == "agent":
-        reg_token = secrets.token_urlsafe(32)
-        reg_expires = datetime.now(timezone.utc) + timedelta(hours=24)
-        host_url = ""
-    else:
-        url_error = validate_docker_host_url(host_url)
-        if url_error:
-            raise HTTPException(status_code=400, detail=url_error)
+    # Agent-type hosts always get a registration token
+    reg_token = secrets.token_urlsafe(32)
+    reg_expires = datetime.now(timezone.utc) + timedelta(hours=24)
+    host_url = ""
 
     host = DockerHost(
         space_id=space_id,

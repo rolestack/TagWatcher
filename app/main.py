@@ -31,6 +31,8 @@ class _HealthCheckFilter(logging.Filter):
             return False
         if "POST /api/agent/sync" in msg:
             return False
+        if "POST /api/agent/log-data" in msg:
+            return False
         return True
 
 

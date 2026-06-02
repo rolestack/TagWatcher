@@ -41,7 +41,7 @@
                 </svg>
             </div>
             <h1 class="text-3xl font-bold text-white tracking-tight" style="text-shadow:0 2px 8px rgba(0,0,0,0.4)">TagWatcher</h1>
-            <p class="mt-2 text-sm" style="color:rgba(255,255,255,0.6)">Docker image update monitoring</p>
+            <p class="mt-2 text-sm" style="color:rgba(255,255,255,0.6)">Container image update monitoring</p>
         </div>
 
         <!-- Login Card -->
@@ -120,15 +120,6 @@
             {% endif %}
         </div>
 
-        <!-- Feature pills -->
-        <div class="mt-6 grid grid-cols-3 gap-3 text-center">
-            {% for icon, label in [('🐳', 'Multi-host Docker monitoring'), ('🔔', 'Smart update notifications'), ('👥', 'Team spaces & groups')] %}
-            <div class="p-3 rounded-xl" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1)">
-                <div class="text-xl mb-1">{{ icon }}</div>
-                <p class="text-xs" style="color:rgba(255,255,255,0.5)">{{ label }}</p>
-            </div>
-            {% endfor %}
-        </div>
     </div>
 
     <!-- Bottom-left: theme toggle -->
