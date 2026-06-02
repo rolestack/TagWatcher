@@ -154,11 +154,14 @@
             </div>
         </div>
         <div>
-            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Type</p>
-            <p class="mt-1 text-sm text-gray-900 capitalize">
-                {% if host.host_type == 'agent' %}Agent
-                {% elif host.use_tls %}TCP (TLS)
-                {% else %}{{ host.host_type | upper }}
+            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Runtime</p>
+            <p class="mt-1 text-sm text-gray-900">
+                {% if host.runtime_type == 'kubernetes' %}
+                <span class="font-medium">Kubernetes</span>
+                {% elif host.runtime_type == 'docker' %}
+                <span class="font-medium">Docker</span>
+                {% else %}
+                <span class="text-sm text-gray-400 italic">Waiting for agent sync...</span>
                 {% endif %}
             </p>
         </div>
