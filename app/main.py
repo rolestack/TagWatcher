@@ -200,15 +200,25 @@ class SetupGuardMiddleware(BaseHTTPMiddleware):
 
         # Step 2: No admin account yet
         try:
-            maker = database.get_session_maker()
+            try:
+                maker = database.get_session_maker()
+            except RuntimeError:
+                # Another worker configured DB but this worker hasn't loaded it yet
+                from app.config_file import get_database_url
+                url = get_database_url()
+                await database.initialize(url)
+                maker = database.get_session_maker()
+
             async with maker() as db:
                 from app.models.user import User
                 count = await db.scalar(
                     select(func.count()).where(User.is_admin == True)  # noqa: E712
                 )
             if not count:
+                logger.warning(f"Setup guard: No admin account found, redirecting {path} to setup")
                 return RedirectResponse(url=_AUTH_SETUP_URL, status_code=302)
-        except Exception:
+        except Exception as e:
+            logger.error(f"Setup guard: Failed to check admin count, redirecting {path} to setup: {e}", exc_info=True)
             return RedirectResponse(url=_AUTH_SETUP_URL, status_code=302)
 
         return await call_next(request)

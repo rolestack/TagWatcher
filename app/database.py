@@ -38,7 +38,16 @@ _init_lock = asyncio.Lock()
 
 
 def is_initialized() -> bool:
-    return _engine is not None
+    # Check both in-memory engine AND config file for multi-worker safety
+    if _engine is not None:
+        return True
+    # If engine is None, check if config file exists (another worker may have initialized)
+    from app.config_file import get_database_url
+    try:
+        url = get_database_url()
+        return url is not None
+    except Exception:
+        return False
 
 
 def get_session_maker() -> async_sessionmaker:
@@ -47,6 +56,18 @@ def get_session_maker() -> async_sessionmaker:
             "Database is not initialized. Complete the setup wizard first."
         )
     return _session_maker
+
+
+async def get_or_init_session_maker() -> async_sessionmaker:
+    """Get session maker, initializing if needed (for multiworker scenarios)."""
+    try:
+        return get_session_maker()
+    except RuntimeError:
+        # Another worker configured DB but this worker hasn't loaded it yet
+        from app.config_file import get_database_url
+        url = get_database_url()
+        await initialize(url)
+        return get_session_maker()
 
 
 async def initialize(database_url: str, debug: bool = False) -> None:
@@ -149,6 +170,9 @@ async def run_migrations() -> None:
             "ALTER TABLE docker_hosts ADD COLUMN IF NOT EXISTS agent_registration_token_expires_at TIMESTAMP WITH TIME ZONE",
             "ALTER TABLE docker_hosts ADD COLUMN IF NOT EXISTS agent_secret VARCHAR(128)",
             "ALTER TABLE docker_hosts ADD COLUMN IF NOT EXISTS agent_allowed_cidrs TEXT",
+            "ALTER TABLE docker_hosts ADD COLUMN IF NOT EXISTS runtime_type VARCHAR(32)",
+            "ALTER TABLE docker_hosts ADD COLUMN IF NOT EXISTS runtime_metadata TEXT",
+            "UPDATE docker_hosts SET host_type = 'unix' WHERE host_url LIKE 'unix://%' AND host_type = 'tcp'",
         ]:
             await conn.execute(text(stmt))
     logger.info("Schema migrations applied.")

@@ -71,7 +71,15 @@ async def setup_page(request: Request):
 
     # Already fully set up — go to dashboard
     if step == 2 and database.is_initialized():
-        maker = database.get_session_maker()
+        try:
+            maker = await database.get_or_init_session_maker()
+        except RuntimeError:
+            # Another worker configured DB but this worker hasn't loaded it yet
+            from app.config_file import get_database_url
+            url = get_database_url()
+            await database.initialize(url)
+            maker = await database.get_or_init_session_maker()
+
         async with maker() as db:
             count = await db.scalar(select(func.count()).where(User.is_admin == True))  # noqa: E712
         if count and count > 0:
@@ -161,7 +169,15 @@ async def setup_admin(
     if not database.is_initialized():
         return RedirectResponse(url=_SETUP_URL, status_code=302)
 
-    maker = database.get_session_maker()
+    # Multi-worker: ensure this worker's engine is initialized
+    try:
+        maker = await database.get_or_init_session_maker()
+    except RuntimeError:
+        # Another worker configured DB but this worker hasn't loaded it yet
+        from app.config_file import get_database_url
+        url = get_database_url()
+        await database.initialize(url)
+        maker = await database.get_or_init_session_maker()
 
     def err(msg: str):
         return templates.TemplateResponse(
@@ -236,7 +252,7 @@ async def login_page(
     if not database.is_initialized():
         return RedirectResponse(url=_SETUP_URL, status_code=302)
 
-    maker = database.get_session_maker()
+    maker = await database.get_or_init_session_maker()
     async with maker() as db:
         count = await db.scalar(select(func.count()).where(User.is_admin == True))  # noqa: E712
         if not count:
@@ -266,7 +282,7 @@ async def login_submit(
             detail="Too many login attempts. Please wait a moment and try again.",
         )
 
-    maker = database.get_session_maker()
+    maker = await database.get_or_init_session_maker()
     async with maker() as db:
         async def err(msg: str):
             ctx = await _login_context(db, error=msg)
@@ -549,7 +565,7 @@ async def logout(request: Request, reason: Optional[str] = None):
     if database.is_initialized():
         try:
             from app.services.audit_service import audit as _audit
-            maker = database.get_session_maker()
+            maker = await database.get_or_init_session_maker()
             async with maker() as db:
                 from app.deps import decode_session as _decode_session
                 cookie = request.cookies.get(settings.SESSION_COOKIE_NAME)
