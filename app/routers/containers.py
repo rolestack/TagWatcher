@@ -345,6 +345,11 @@ async def update_container_image(
 
     latest_tag = container.latest_tag or container.tag
     new_image = f"{container.image}:{latest_tag}"
+    # Kubernetes is declarative: a same-tag (e.g. latest) image won't change the
+    # workload spec, so pin the digest to force a rollout. Docker pulls the latest
+    # digest by tag on its own, so it needs no pinning.
+    if host.runtime_type == "kubernetes" and container.latest_digest:
+        new_image = f"{container.image}:{latest_tag}@{container.latest_digest}"
 
     from app.models.notification import NotificationLog
     from app.services.audit_service import audit as _audit
