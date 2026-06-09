@@ -182,6 +182,12 @@ async def run_migrations() -> None:
             "ALTER TABLE docker_hosts ADD COLUMN IF NOT EXISTS agent_sync_interval INTEGER",
             "ALTER TABLE tracked_containers ADD COLUMN IF NOT EXISTS namespace VARCHAR(256)",
             "UPDATE docker_hosts SET host_type = 'unix' WHERE host_url LIKE 'unix://%' AND host_type = 'tcp'",
+            # Notification channels → global + M:N. Link existing space-scoped channels
+            # to their space, then relax the space_id NOT NULL constraint.
+            "INSERT INTO space_notification_channels (space_id, channel_id) "
+            "SELECT space_id, id FROM notification_channels WHERE space_id IS NOT NULL "
+            "ON CONFLICT DO NOTHING",
+            "ALTER TABLE notification_channels ALTER COLUMN space_id DROP NOT NULL",
         ]:
             await conn.execute(text(stmt))
     logger.info("Schema migrations applied.")

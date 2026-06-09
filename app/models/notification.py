@@ -5,11 +5,20 @@ from enum import Enum as PyEnum
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Text, Enum
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, Text, Enum, Table, Column
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 from app.database import Base
+
+
+# M:N — a global channel can be linked to multiple spaces, and vice versa.
+space_notification_channels = Table(
+    "space_notification_channels",
+    Base.metadata,
+    Column("space_id", UUID(as_uuid=True), ForeignKey("spaces.id", ondelete="CASCADE"), primary_key=True),
+    Column("channel_id", UUID(as_uuid=True), ForeignKey("notification_channels.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class ChannelType(str, PyEnum):
@@ -25,8 +34,10 @@ class NotificationChannel(Base):
     __tablename__ = "notification_channels"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    space_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("spaces.id", ondelete="CASCADE"), nullable=False, index=True
+    # Deprecated — kept during the migration to global channels. New channels are
+    # global (space_id NULL) and linked to spaces via space_notification_channels.
+    space_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("spaces.id", ondelete="CASCADE"), nullable=True, index=True
     )
     name: Mapped[str] = mapped_column(String(256), nullable=False)
     channel_type: Mapped[ChannelType] = mapped_column(
@@ -39,6 +50,9 @@ class NotificationChannel(Base):
 
     # Relationships
     space: Mapped["Space"] = relationship("Space", back_populates="notification_channels")  # noqa: F821
+    linked_spaces: Mapped[list["Space"]] = relationship(  # noqa: F821
+        "Space", secondary=space_notification_channels, backref="linked_channels", lazy="selectin"
+    )
     notification_logs: Mapped[list["NotificationLog"]] = relationship(
         "NotificationLog",
         back_populates="channel",
