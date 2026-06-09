@@ -4,7 +4,7 @@ from sqlalchemy import String, DateTime, Table, Column, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 
-from app.database import Base
+from app.database import Base, utcnow
 from app.models.user import user_groups
 
 # Association table for Group <-> Space many-to-many
@@ -22,7 +22,7 @@ class Group(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(256), unique=True, nullable=False, index=True)
     description: Mapped[str | None] = mapped_column(String(1024), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
 
     # Relationships
     users: Mapped[list["User"]] = relationship(  # noqa: F821

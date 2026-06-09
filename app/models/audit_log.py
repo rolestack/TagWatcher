@@ -4,7 +4,7 @@ from sqlalchemy import String, DateTime, Text, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 
-from app.database import Base
+from app.database import Base, utcnow
 
 
 class AuditLog(Base):
@@ -30,7 +30,7 @@ class AuditLog(Base):
     ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=datetime.utcnow, index=True
+        DateTime(timezone=True), nullable=False, default=utcnow, index=True
     )
 
     user: Mapped["User | None"] = relationship("User", lazy="select")  # noqa: F821

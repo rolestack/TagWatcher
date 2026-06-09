@@ -10,8 +10,15 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import MetaData, text
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
+
+
+def utcnow() -> datetime:
+    """Timezone-aware UTC now — use as a column default so values are stored
+    correctly regardless of the database session timezone."""
+    return datetime.now(timezone.utc)
 
 convention = {
     "ix": "ix_%(column_0_label)s",
