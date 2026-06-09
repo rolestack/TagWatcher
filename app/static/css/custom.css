@@ -190,6 +190,7 @@ html.dark footer { border-color: #334155 !important; color: #475569 !important; 
     width: 8px;
     height: 8px;
     border-radius: 50%;
+    background-color: #9ca3af; /* default (no state class) — avoids an invisible gap */
 }
 .status-dot.running { background-color: #22c55e; }
 .status-dot.stopped, .status-dot.exited, .status-dot.restarting { background-color: #ef4444; }

@@ -136,7 +136,7 @@
                 </span>
                 {% elif host.host_type == 'agent' and not host.is_agent_online %}
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                    <span class="status-dot mr-1.5"></span>Pending
+                    <span class="status-dot paused mr-1.5"></span>Pending
                 </span>
                 {% elif host.last_sync_error %}
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">

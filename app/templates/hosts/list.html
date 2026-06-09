@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Hosts — {{ space.name }}{% endblock %}
-{% block page_title %}Docker Hosts{% endblock %}
+{% block page_title %}Hosts{% endblock %}
 
 {% block breadcrumb %}
 <nav class="text-xs text-gray-500 mt-0.5">
@@ -85,7 +85,7 @@
             <thead>
                 <tr class="bg-gray-50">
                     <th class="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Host</th>
-                    <th class="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">URL</th>
+                    <th class="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Runtime</th>
                     <th class="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Status</th>
                     <th class="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden lg:table-cell">Containers</th>
                     <th class="text-left px-4 md:px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden lg:table-cell">Last Synced</th>
@@ -124,7 +124,13 @@
                         </div>
                     </td>
                     <td class="px-4 md:px-6 py-4 hidden md:table-cell">
-                        <code class="text-xs text-gray-600 bg-gray-50 px-2 py-0.5 rounded">{{ host.host_url }}</code>
+                        {% if host.runtime_type == 'kubernetes' %}
+                        <span class="text-xs font-medium text-gray-700">Kubernetes</span>
+                        {% elif host.runtime_type == 'docker' %}
+                        <span class="text-xs font-medium text-gray-700">Docker</span>
+                        {% else %}
+                        <span class="text-xs text-gray-400 italic">Waiting for sync…</span>
+                        {% endif %}
                     </td>
                     <td class="px-4 md:px-6 py-4 hidden sm:table-cell">
                         {% if not host.is_active %}
@@ -217,8 +223,8 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
     </svg>
-    <h3 class="text-base font-semibold text-gray-900 mb-2">No Docker hosts yet</h3>
-    <p class="text-sm text-gray-500 mb-4">Add a Docker host to start monitoring containers.</p>
+    <h3 class="text-base font-semibold text-gray-900 mb-2">No hosts yet</h3>
+    <p class="text-sm text-gray-500 mb-4">Add a host to start monitoring containers.</p>
     <button @click="$dispatch('open-add-host')"
             class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg">
         Add Your First Host
