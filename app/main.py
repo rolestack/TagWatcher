@@ -272,7 +272,7 @@ from app.templates_setup import templates  # noqa: E402
 # Routers
 # ---------------------------------------------------------------------------
 
-from app.routers import auth, dashboard, spaces, docker_hosts, containers, notifications, admin, account, agent_api  # noqa: E402
+from app.routers import auth, dashboard, spaces, docker_hosts, containers, notifications, channels, admin, account, agent_api  # noqa: E402
 from app.models import audit_log as _audit_log_model  # noqa: F401 — ensure table registered
 
 app.include_router(auth.router)
@@ -281,6 +281,7 @@ app.include_router(spaces.router)
 app.include_router(docker_hosts.router)
 app.include_router(containers.router)
 app.include_router(notifications.router)
+app.include_router(channels.router)
 app.include_router(admin.router)
 app.include_router(account.router)
 app.include_router(agent_api.router)

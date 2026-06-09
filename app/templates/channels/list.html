@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Notification Channels{% endblock %}
+{% block page_title %}Notification Channels{% endblock %}
+
+{% block breadcrumb %}
+<nav class="text-xs text-gray-500 mt-0.5">Global channels — define once, link to any Space.</nav>
+{% endblock %}
+
+{% block header_actions %}
+<button @click="$dispatch('open-add-channel')"
+        class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+    </svg>
+    Add Channel
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- Add Channel Modal -->
+<div x-data="notificationForm()" @open-add-channel.window="open()">
+    <div class="modal-overlay" x-show="showModal" x-cloak @click.self="close()">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto" @click.stop>
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Add Notification Channel</h3>
+            <form method="post" action="/channels" class="space-y-4">
+                <input type="hidden" name="config_json" :value="configJson" />
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Channel Name *</label>
+                    <input type="text" name="name" required x-model="name" placeholder="e.g. Ops Slack"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Channel Type *</label>
+                    <select name="channel_type" x-model="channelType" @change="resetConfig()"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        {% for ct in channel_types %}
+                        <option value="{{ ct }}">{{ ct|capitalize }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="space-y-3 bg-gray-50 rounded-lg p-4">
+                    <template x-for="field in currentFields" :key="field.key">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">
+                                <span x-text="field.label"></span>
+                                <span x-show="field.required" class="text-red-500 ml-0.5">*</span>
+                            </label>
+                            <input :type="field.type" :placeholder="field.placeholder" :required="field.required"
+                                   :value="getField(field.key)" @input="setField(field.key, $event.target.value)"
+                                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                    </template>
+                </div>
+
+                {% if spaces %}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Apply to Spaces</label>
+                    <div class="max-h-36 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-1">
+                        {% for s in spaces %}
+                        <label class="flex items-center gap-2 text-sm text-gray-700">
+                            <input type="checkbox" name="space_ids" value="{{ s.id }}"
+                                   class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                            {{ s.name }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" name="is_active" id="is_active" checked
+                           class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    <label for="is_active" class="text-sm text-gray-700">Active</label>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" @click="close()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg">Add Channel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Channels list -->
+{% if channels %}
+<div class="space-y-4">
+    {% for ch in channels %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5"
+         x-data="{ editSpaces: false, testing: false, result: null,
+                   async test() { this.testing = true; this.result = null;
+                     try { const r = await fetch('/channels/{{ ch.id }}/test', {method:'POST'});
+                       const d = await r.json(); this.result = {ok: r.ok, text: d.message || d.detail || 'Done'}; }
+                     catch (e) { this.result = {ok: false, text: e.message}; } this.testing = false; },
+                   async del() { if (!confirm('Delete this channel?')) return;
+                     await fetch('/channels/{{ ch.id }}', {method:'DELETE'}); location.reload(); } }">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex items-center space-x-4 min-w-0">
+                <div class="channel-icon channel-{{ ch.channel_type.value }} flex-shrink-0">
+                    {% if ch.channel_type.value == 'slack' %}💬{% elif ch.channel_type.value == 'discord' %}🎮{% elif ch.channel_type.value == 'telegram' %}✈️{% elif ch.channel_type.value == 'zulip' %}🌀{% elif ch.channel_type.value == 'mattermost' %}💼{% elif ch.channel_type.value == 'teams' %}🟦{% endif %}
+                </div>
+                <div class="min-w-0">
+                    <div class="flex items-center flex-wrap gap-1.5">
+                        <h3 class="text-sm font-semibold text-gray-900">{{ ch.name }}</h3>
+                        <span class="text-xs px-2 py-0.5 rounded-full capitalize bg-gray-100 text-gray-600">{{ ch.channel_type.value }}</span>
+                        {% if ch.is_active %}
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">active</span>
+                        {% else %}
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">inactive</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-xs text-gray-500 mt-0.5">
+                        {% if ch.linked_spaces %}Linked: {{ ch.linked_spaces | map(attribute='name') | join(', ') }}{% else %}Not linked to any space{% endif %}
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap flex-shrink-0">
+                <button @click="editSpaces = !editSpaces"
+                        class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">Spaces</button>
+                <button @click="test()" :disabled="testing"
+                        class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors">
+                    <span x-text="testing ? 'Sending...' : 'Test'">Test</span>
+                </button>
+                <button @click="del()"
+                        class="inline-flex items-center px-3 py-1.5 border border-red-200 text-xs font-medium rounded-lg text-red-600 hover:bg-red-50 transition-colors">Delete</button>
+            </div>
+        </div>
+
+        <!-- Space linking -->
+        <div x-show="editSpaces" x-cloak class="mt-4 pt-4 border-t border-gray-100">
+            <form method="post" action="/channels/{{ ch.id }}/spaces">
+                <p class="text-xs font-medium text-gray-600 mb-2">Apply this channel to:</p>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mb-3">
+                    {% for s in spaces %}
+                    <label class="flex items-center gap-2 text-sm text-gray-700">
+                        <input type="checkbox" name="space_ids" value="{{ s.id }}"
+                               {% if s in ch.linked_spaces %}checked{% endif %}
+                               class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                        {{ s.name }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <button type="submit" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg">Save</button>
+            </form>
+        </div>
+
+        <div x-show="result" x-cloak class="mt-3 text-xs px-3 py-2 rounded-lg font-medium"
+             :class="result?.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'"
+             x-text="result?.text"></div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 md:p-16 text-center">
+    <svg class="mx-auto w-12 h-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+    </svg>
+    <h3 class="text-base font-semibold text-gray-900 mb-2">No notification channels</h3>
+    <p class="text-sm text-gray-500 mb-4">Create a channel once and link it to any Space. Supports Slack, Discord, Telegram, Zulip, Mattermost, and Microsoft Teams.</p>
+    <button @click="$dispatch('open-add-channel')"
+            class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg">Add Channel</button>
+</div>
+{% endif %}
+{% endblock %}
