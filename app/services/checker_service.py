@@ -6,11 +6,26 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_
 
 from app.models.docker_host import DockerHost
 from app.models.container import TrackedContainer
-from app.models.notification import NotificationChannel, NotificationLog
+from app.models.notification import NotificationChannel, NotificationLog, space_notification_channels
+
+
+def _active_channels_for_space(space_id):
+    """Active channels for a space: legacy direct space_id + global channels linked via M:N."""
+    return select(NotificationChannel).where(
+        NotificationChannel.is_active == True,  # noqa: E712
+        or_(
+            NotificationChannel.space_id == space_id,
+            NotificationChannel.id.in_(
+                select(space_notification_channels.c.channel_id).where(
+                    space_notification_channels.c.space_id == space_id
+                )
+            ),
+        ),
+    ).distinct()
 from app.models.space import Space
 from app.services.docker_service import DockerService
 from app.services.registry_service import RegistryService
@@ -298,12 +313,7 @@ class CheckerService:
         space_name = space.name if space else ""
         check_time = datetime.now(timezone.utc)
 
-        channels_result = await db.execute(
-            select(NotificationChannel).where(
-                NotificationChannel.space_id == host.space_id,
-                NotificationChannel.is_active == True,  # noqa: E712
-            )
-        )
+        channels_result = await db.execute(_active_channels_for_space(host.space_id))
         channels = channels_result.scalars().all()
 
         for channel in channels:
@@ -345,12 +355,7 @@ class CheckerService:
         space = space_result.scalar_one_or_none()
         space_name = space.name if space else ""
 
-        channels_result = await db.execute(
-            select(NotificationChannel).where(
-                NotificationChannel.space_id == host.space_id,
-                NotificationChannel.is_active == True,  # noqa: E712
-            )
-        )
+        channels_result = await db.execute(_active_channels_for_space(host.space_id))
         channels = channels_result.scalars().all()
         if not channels:
             return
