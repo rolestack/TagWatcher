@@ -26,10 +26,12 @@
    class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors whitespace-nowrap">
     <span class="hidden sm:inline">Manage </span>Hosts
 </a>
-<a href="/spaces/{{ space.id }}/notifications"
+{% if user.is_admin %}
+<a href="/channels"
    class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors whitespace-nowrap">
     <span class="hidden sm:inline">Manage </span>Notifications
 </a>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -108,10 +110,12 @@
 <div class="bg-white rounded-xl shadow-sm border border-gray-100">
     <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
         <h2 class="font-semibold text-gray-900">Notification Channels</h2>
-        <a href="/spaces/{{ space.id }}/notifications"
+        {% if user.is_admin %}
+        <a href="/channels"
            class="text-sm text-blue-600 hover:text-blue-800 font-medium">
             Manage →
         </a>
+        {% endif %}
     </div>
     {% if notification_channels %}
     <div class="divide-y divide-gray-50">
@@ -140,9 +144,11 @@
     </div>
     {% else %}
     <div class="px-6 py-10 text-center">
-        <p class="text-sm text-gray-500 mb-3">No notification channels configured.</p>
-        <a href="/spaces/{{ space.id }}/notifications"
-           class="text-sm text-blue-600 hover:underline">Add a channel →</a>
+        <p class="text-sm text-gray-500 mb-3">No notification channels linked.</p>
+        {% if user.is_admin %}
+        <a href="/channels"
+           class="text-sm text-blue-600 hover:underline">Manage channels →</a>
+        {% endif %}
     </div>
     {% endif %}
 </div>

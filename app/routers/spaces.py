@@ -10,6 +10,7 @@ from sqlalchemy import select
 from app.deps import get_current_active_user, require_admin, get_db, CurrentUser, AdminUser, DB, get_space_access
 from app.models.space import Space
 from app.models.group import group_spaces
+from app.models.notification import NotificationChannel, space_notification_channels
 from app.schemas.space import SpaceCreate, SpaceRead, SpaceDetail
 
 logger = logging.getLogger(__name__)
@@ -56,14 +57,21 @@ async def space_detail(
 ):
     space = await get_space_access(space_id, user, db)
 
+    # Channels linked to this space (global channels via M:N + migrated legacy ones).
+    linked_channels = (await db.execute(
+        select(NotificationChannel)
+        .join(space_notification_channels, NotificationChannel.id == space_notification_channels.c.channel_id)
+        .where(space_notification_channels.c.space_id == space_id)
+    )).scalars().all()
+
     return templates.TemplateResponse(
         request,
         "spaces/detail.html",
         {
-"user": user,
+            "user": user,
             "space": space,
             "docker_hosts": space.docker_hosts,
-            "notification_channels": space.notification_channels,
+            "notification_channels": linked_channels,
         },
     )
 
