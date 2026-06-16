@@ -14,18 +14,18 @@ from app.models.notification import NotificationChannel, NotificationLog, space_
 
 
 def _active_channels_for_space(space_id):
-    """Active channels for a space: legacy direct space_id + global channels linked via M:N."""
-    return select(NotificationChannel).where(
+    """Active channels linked to this space via the M:N link table.
+
+    Only linked channels receive notifications — unlinking a channel from a space
+    immediately stops delivery (the legacy space_id column is no longer consulted).
+    """
+    return select(NotificationChannel).join(
+        space_notification_channels,
+        NotificationChannel.id == space_notification_channels.c.channel_id,
+    ).where(
+        space_notification_channels.c.space_id == space_id,
         NotificationChannel.is_active == True,  # noqa: E712
-        or_(
-            NotificationChannel.space_id == space_id,
-            NotificationChannel.id.in_(
-                select(space_notification_channels.c.channel_id).where(
-                    space_notification_channels.c.space_id == space_id
-                )
-            ),
-        ),
-    ).distinct()
+    )
 from app.models.space import Space
 from app.services.docker_service import DockerService
 from app.services.registry_service import RegistryService

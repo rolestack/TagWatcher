@@ -17,6 +17,7 @@
 {% endblock %}
 
 {% block content %}
+<script>const TW_ALL_SPACES = {{ spaces_data | tojson }};</script>
 <!-- Add Channel Modal -->
 <div x-data="notificationForm()" @open-add-channel.window="open()">
     <div class="modal-overlay" x-show="showModal" x-cloak @click.self="close()">
@@ -56,17 +57,31 @@
                 </div>
 
                 {% if spaces %}
-                <div>
+                <div x-data="spacePicker(TW_ALL_SPACES, [])" class="relative">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Apply to Spaces</label>
-                    <div class="max-h-36 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-1">
-                        {% for s in spaces %}
-                        <label class="flex items-center gap-2 text-sm text-gray-700">
-                            <input type="checkbox" name="space_ids" value="{{ s.id }}"
-                                   class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                            {{ s.name }}
-                        </label>
-                        {% endfor %}
+                    <button type="button" @click="open = !open"
+                            class="w-full flex items-center justify-between border border-gray-300 rounded-lg px-3 py-2 text-sm text-left bg-white">
+                        <span x-text="label" :class="selected.length ? 'text-gray-900' : 'text-gray-400'"></span>
+                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div x-show="open" x-cloak @click.outside="open = false"
+                         class="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-hidden">
+                        <input type="text" x-model="search" placeholder="Search spaces..."
+                               class="w-full border-b border-gray-100 px-3 py-2 text-sm focus:outline-none" />
+                        <div class="max-h-40 overflow-y-auto p-1">
+                            <template x-for="s in filtered" :key="s.id">
+                                <label class="flex items-center gap-2 text-sm text-gray-700 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
+                                    <input type="checkbox" :checked="isSelected(s.id)" @change="toggle(s.id)"
+                                           class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                    <span x-text="s.name"></span>
+                                </label>
+                            </template>
+                            <p x-show="!filtered.length" class="text-xs text-gray-400 px-2 py-2">No matches</p>
+                        </div>
                     </div>
+                    <template x-for="id in selected" :key="id">
+                        <input type="hidden" name="space_ids" :value="id" />
+                    </template>
                 </div>
                 {% endif %}
 
@@ -131,17 +146,33 @@
 
         <!-- Space linking -->
         <div x-show="editSpaces" x-cloak class="mt-4 pt-4 border-t border-gray-100">
-            <form method="post" action="/channels/{{ ch.id }}/spaces">
+            <form method="post" action="/channels/{{ ch.id }}/spaces"
+                  x-data="spacePicker(TW_ALL_SPACES, {{ ch.linked_spaces | map(attribute='id') | map('string') | list | tojson }})">
                 <p class="text-xs font-medium text-gray-600 mb-2">Apply this channel to:</p>
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mb-3">
-                    {% for s in spaces %}
-                    <label class="flex items-center gap-2 text-sm text-gray-700">
-                        <input type="checkbox" name="space_ids" value="{{ s.id }}"
-                               {% if s in ch.linked_spaces %}checked{% endif %}
-                               class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                        {{ s.name }}
-                    </label>
-                    {% endfor %}
+                <div class="relative mb-3">
+                    <button type="button" @click="open = !open"
+                            class="w-full sm:w-72 flex items-center justify-between border border-gray-300 rounded-lg px-3 py-2 text-sm text-left bg-white">
+                        <span x-text="label" :class="selected.length ? 'text-gray-900' : 'text-gray-400'"></span>
+                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div x-show="open" x-cloak @click.outside="open = false"
+                         class="absolute z-10 mt-1 w-full sm:w-72 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                        <input type="text" x-model="search" placeholder="Search spaces..."
+                               class="w-full border-b border-gray-100 px-3 py-2 text-sm focus:outline-none" />
+                        <div class="max-h-40 overflow-y-auto p-1">
+                            <template x-for="s in filtered" :key="s.id">
+                                <label class="flex items-center gap-2 text-sm text-gray-700 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
+                                    <input type="checkbox" :checked="isSelected(s.id)" @change="toggle(s.id)"
+                                           class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                    <span x-text="s.name"></span>
+                                </label>
+                            </template>
+                            <p x-show="!filtered.length" class="text-xs text-gray-400 px-2 py-2">No matches</p>
+                        </div>
+                    </div>
+                    <template x-for="id in selected" :key="id">
+                        <input type="hidden" name="space_ids" :value="id" />
+                    </template>
                 </div>
                 <button type="submit" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg">Save</button>
             </form>

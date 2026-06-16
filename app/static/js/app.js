@@ -779,3 +779,31 @@ function testNotification(spaceId, channelId) {
         },
     };
 }
+
+
+// ─── Space multi-select dropdown (searchable) ─────────────────────────────────
+function spacePicker(allSpaces, selectedIds) {
+    return {
+        open: false,
+        search: '',
+        selected: (selectedIds || []).map(String),
+        get filtered() {
+            const q = this.search.toLowerCase();
+            return allSpaces.filter(s => s.name.toLowerCase().includes(q));
+        },
+        isSelected(id) { return this.selected.includes(String(id)); },
+        toggle(id) {
+            id = String(id);
+            const i = this.selected.indexOf(id);
+            if (i >= 0) this.selected.splice(i, 1); else this.selected.push(id);
+        },
+        get label() {
+            if (!this.selected.length) return 'Select spaces';
+            if (this.selected.length === 1) {
+                const s = allSpaces.find(x => String(x.id) === this.selected[0]);
+                return s ? s.name : '1 space';
+            }
+            return `${this.selected.length} spaces`;
+        },
+    };
+}

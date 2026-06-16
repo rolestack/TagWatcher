@@ -49,6 +49,7 @@ async def list_channels(request: Request, user: CurrentUser, db: DB):
     )
     channels = result.scalars().all()
     spaces = (await db.execute(select(Space))).scalars().all()
+    spaces_data = [{"id": str(s.id), "name": s.name} for s in spaces]
     return templates.TemplateResponse(
         request,
         "channels/list.html",
@@ -56,6 +57,7 @@ async def list_channels(request: Request, user: CurrentUser, db: DB):
             "user": user,
             "channels": channels,
             "spaces": spaces,
+            "spaces_data": spaces_data,
             "channel_types": [ct.value for ct in ChannelType],
         },
     )
