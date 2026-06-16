@@ -57,7 +57,7 @@ class NotificationChannel(Base):
         "NotificationLog",
         back_populates="channel",
         lazy="selectin",
-        cascade="all, delete-orphan",
+        passive_deletes=True,  # let the DB SET NULL on delete; keep the logs
     )
 
     def __repr__(self) -> str:
@@ -71,9 +71,12 @@ class NotificationLog(Base):
     container_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tracked_containers.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    channel_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("notification_channels.id", ondelete="CASCADE"), nullable=False, index=True
+    # SET NULL (not CASCADE) so deleting a channel keeps the history. channel_name
+    # snapshots the name so the log still shows which channel it was sent to.
+    channel_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("notification_channels.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    channel_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
     old_tag: Mapped[str | None] = mapped_column(String(256), nullable=True)
     old_digest: Mapped[str | None] = mapped_column(String(256), nullable=True)
     new_tag: Mapped[str | None] = mapped_column(String(256), nullable=True)

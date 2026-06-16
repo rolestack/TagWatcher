@@ -320,6 +320,7 @@ class CheckerService:
             log = NotificationLog(
                 container_id=container.id,
                 channel_id=channel.id,
+                channel_name=channel.name,
                 old_tag=container.tag,
                 old_digest=container.digest,
                 new_tag=container.latest_tag,
@@ -381,6 +382,7 @@ class CheckerService:
                 log = NotificationLog(
                     container_id=container.id,
                     channel_id=channel.id,
+                    channel_name=channel.name,
                     old_tag=container.tag,
                     old_digest=container.digest,
                     new_tag=container.latest_tag,

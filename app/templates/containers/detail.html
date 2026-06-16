@@ -258,8 +258,9 @@
                      @log-acked.window="if ($event.detail.containerId === '{{ container.id }}' && status === 'sent') { status = 'ack'; changedAt = $event.detail.changedAt; }"
                      class="flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm py-2 border-b border-gray-50 last:border-0 gap-1.5">
                     <div class="flex items-center gap-2 min-w-0">
-                        {% if log.channel %}
-                        <span class="text-xs text-gray-400 capitalize shrink-0">{{ log.channel.name }}</span>
+                        {% set _cn = log.channel.name if log.channel else log.channel_name %}
+                        {% if _cn %}
+                        <span class="text-xs text-gray-400 capitalize shrink-0">{{ _cn }}</span>
                         <span class="text-gray-300 shrink-0">·</span>
                         {% endif %}
                         <span class="font-mono text-xs text-gray-500 truncate">{{ log.old_tag or '?' }} → {{ log.new_tag or '?' }}</span>

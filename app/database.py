@@ -188,6 +188,15 @@ async def run_migrations() -> None:
             "SELECT space_id, id FROM notification_channels WHERE space_id IS NOT NULL "
             "ON CONFLICT DO NOTHING",
             "ALTER TABLE notification_channels ALTER COLUMN space_id DROP NOT NULL",
+            # Preserve notification history when a channel is deleted: snapshot the
+            # channel name and switch the FK from CASCADE to SET NULL.
+            "ALTER TABLE notification_logs ADD COLUMN IF NOT EXISTS channel_name VARCHAR(256)",
+            "UPDATE notification_logs l SET channel_name = c.name "
+            "FROM notification_channels c WHERE l.channel_id = c.id AND l.channel_name IS NULL",
+            "ALTER TABLE notification_logs ALTER COLUMN channel_id DROP NOT NULL",
+            "ALTER TABLE notification_logs DROP CONSTRAINT IF EXISTS fk_notification_logs_channel_id_notification_channels",
+            "ALTER TABLE notification_logs ADD CONSTRAINT fk_notification_logs_channel_id_notification_channels "
+            "FOREIGN KEY (channel_id) REFERENCES notification_channels(id) ON DELETE SET NULL",
         ]:
             await conn.execute(text(stmt))
     logger.info("Schema migrations applied.")
