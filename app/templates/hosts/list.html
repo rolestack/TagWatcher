@@ -112,6 +112,8 @@
                                 <div class="sm:hidden mt-0.5">
                                     {% if not host.is_active %}
                                     <span class="inline-flex items-center text-xs text-gray-500"><span class="status-dot removed mr-1"></span>Disabled</span>
+                                    {% elif host.host_type == 'agent' and not host.is_agent_online %}
+                                    <span class="inline-flex items-center text-xs text-amber-600"><span class="status-dot paused mr-1"></span>Pending</span>
                                     {% elif host.last_sync_error %}
                                     <span class="inline-flex items-center text-xs text-red-600"><span class="status-dot exited mr-1"></span>Error</span>
                                     {% elif host.last_synced_at %}
@@ -136,6 +138,10 @@
                         {% if not host.is_active %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
                             <span class="status-dot removed mr-1.5"></span>Disabled
+                        </span>
+                        {% elif host.host_type == 'agent' and not host.is_agent_online %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                            <span class="status-dot paused mr-1.5"></span>Pending
                         </span>
                         {% elif host.last_sync_error %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700"

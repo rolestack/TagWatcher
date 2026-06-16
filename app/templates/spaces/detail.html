@@ -70,10 +70,16 @@
             <div class="flex-1 min-w-0">
                 <div class="flex items-center flex-wrap gap-1.5">
                     <p class="text-sm font-medium text-gray-900 group-hover:text-blue-600">{{ host.name }}</p>
-                    {% if host.is_active %}
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">active</span>
+                    {% if not host.is_active %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500"><span class="status-dot removed mr-1"></span>disabled</span>
+                    {% elif host.host_type == 'agent' and not host.is_agent_online %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700"><span class="status-dot paused mr-1"></span>pending</span>
+                    {% elif host.last_sync_error %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700"><span class="status-dot exited mr-1"></span>error</span>
+                    {% elif host.last_synced_at %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700"><span class="status-dot running mr-1"></span>connected</span>
                     {% else %}
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500">inactive</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500"><span class="status-dot mr-1"></span>not synced</span>
                     {% endif %}
                     {% if host.use_tls %}
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700">TLS</span>
