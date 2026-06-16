@@ -58,7 +58,7 @@
 
                 {% if spaces %}
                 <div x-data="spacePicker(TW_ALL_SPACES, [])" class="relative">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Apply to Spaces</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Spaces</label>
                     <button type="button" @click="open = !open"
                             class="w-full flex items-center justify-between border border-gray-300 rounded-lg px-3 py-2 text-sm text-left bg-white">
                         <span x-text="label" :class="selected.length ? 'text-gray-900' : 'text-gray-400'"></span>
@@ -148,7 +148,7 @@
         <div x-show="editSpaces" x-cloak class="mt-4 pt-4 border-t border-gray-100">
             <form method="post" action="/channels/{{ ch.id }}/spaces"
                   x-data="spacePicker(TW_ALL_SPACES, {{ ch.linked_spaces | map(attribute='id') | map('string') | list | tojson }})">
-                <p class="text-xs font-medium text-gray-600 mb-2">Apply this channel to:</p>
+                <p class="text-xs font-medium text-gray-600 mb-2">Spaces</p>
                 <div class="relative mb-3">
                     <button type="button" @click="open = !open"
                             class="w-full sm:w-72 flex items-center justify-between border border-gray-300 rounded-lg px-3 py-2 text-sm text-left bg-white">
